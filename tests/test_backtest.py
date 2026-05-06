@@ -37,3 +37,17 @@ def test_calculate_kpi():
     assert kpi['total_return'] == 0.5
     assert kpi['max_drawdown'] < 0.0
     assert kpi['sharpe'] != 0.0
+
+def test_calculate_kpi_trade_metrics_exclude_flat_periods():
+    df = pd.DataFrame({
+        'equity': [1.0, 1.0, 1.1, 1.1, 1.0, 1.0],
+        'strategy_returns': [0.0, 0.0, 0.1, 0.0, -0.1, 0.0],
+        'position': [0, 1, 1, 0, -1, 0],
+    })
+
+    kpi = calculate_kpi(df)
+
+    assert kpi['total_trades'] == 4
+    assert kpi['exposure'] == pytest.approx(0.5)
+    assert kpi['win_rate'] == pytest.approx(0.5)
+    assert kpi['profit_factor'] == pytest.approx(1.0)

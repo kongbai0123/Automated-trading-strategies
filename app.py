@@ -1,9 +1,12 @@
 import os
 import sys
 from typing import Any
+from datetime import datetime
 
 import pandas as pd
+import numpy as np
 import streamlit as st
+import plotly.graph_objects as go
 
 # Ensure we can import from src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
@@ -72,26 +75,19 @@ def inject_css() -> None:
             :root {
                 --bg: #07111f;
                 --panel: rgba(9, 21, 37, 0.78);
-                --panel-strong: rgba(12, 29, 49, 0.92);
                 --line: rgba(148, 163, 184, 0.18);
                 --text: #e2e8f0;
                 --muted: #94a3b8;
                 --accent: #38bdf8;
-                --up: #22c55e;
-                --down: #fb7185;
-                --warning: #f59e0b;
             }
 
             .stApp {
-                background:
-                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 28%),
-                    radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 22%),
-                    linear-gradient(180deg, #08111d 0%, #07111f 55%, #020617 100%);
+                background: linear-gradient(180deg, #08111d 0%, #07111f 55%, #020617 100%);
                 color: var(--text);
                 font-family: 'Noto Sans TC', sans-serif;
             }
 
-            h1, h2, h3, .workspace-title, .workspace-kicker {
+            h1, h2, h3 {
                 font-family: 'Space Grotesk', 'Noto Sans TC', sans-serif !important;
             }
 
@@ -100,105 +96,12 @@ def inject_css() -> None:
                 padding-bottom: 2rem;
             }
 
-            [data-testid="stSidebar"] {
-                background: rgba(7, 17, 31, 0.96);
-                border-right: 1px solid var(--line);
-            }
-
             [data-testid="stMetric"] {
                 background: var(--panel);
                 border: 1px solid var(--line);
-                border-radius: 18px;
-                padding: 0.9rem 1rem;
+                border-radius: 12px;
+                padding: 0.8rem;
                 backdrop-filter: blur(12px);
-            }
-
-            [data-testid="stMetricLabel"] {
-                color: var(--muted);
-            }
-
-            .workspace-shell {
-                background: linear-gradient(180deg, rgba(8, 18, 32, 0.92), rgba(8, 18, 32, 0.68));
-                border: 1px solid var(--line);
-                border-radius: 24px;
-                padding: 1.2rem 1.2rem 0.8rem;
-                backdrop-filter: blur(14px);
-                box-shadow: 0 24px 80px rgba(2, 6, 23, 0.35);
-                margin-bottom: 1rem;
-            }
-
-            .workspace-kicker {
-                color: var(--accent);
-                font-size: 0.8rem;
-                letter-spacing: 0.12em;
-                text-transform: uppercase;
-                font-weight: 700;
-            }
-
-            .workspace-title {
-                color: white;
-                font-size: 2.1rem;
-                font-weight: 700;
-                margin: 0.15rem 0 0.35rem;
-            }
-
-            .workspace-copy {
-                color: var(--muted);
-                margin: 0;
-            }
-
-            .panel-card {
-                background: var(--panel);
-                border: 1px solid var(--line);
-                border-radius: 20px;
-                padding: 1rem 1.1rem;
-                margin-bottom: 0.8rem;
-                backdrop-filter: blur(10px);
-            }
-
-            .panel-card strong {
-                color: white;
-            }
-
-            .signal-pill {
-                display: inline-flex;
-                align-items: center;
-                gap: 0.4rem;
-                padding: 0.35rem 0.7rem;
-                border-radius: 999px;
-                font-size: 0.85rem;
-                font-weight: 700;
-                border: 1px solid transparent;
-            }
-
-            .signal-buy {
-                color: #dcfce7;
-                background: rgba(34, 197, 94, 0.14);
-                border-color: rgba(34, 197, 94, 0.28);
-            }
-
-            .signal-sell {
-                color: #ffe4e6;
-                background: rgba(251, 113, 133, 0.14);
-                border-color: rgba(251, 113, 133, 0.28);
-            }
-
-            .signal-hold {
-                color: #fef3c7;
-                background: rgba(245, 158, 11, 0.14);
-                border-color: rgba(245, 158, 11, 0.28);
-            }
-
-            .mini-label {
-                color: var(--muted);
-                font-size: 0.82rem;
-                margin-bottom: 0.35rem;
-            }
-
-            .mini-value {
-                color: white;
-                font-size: 1.15rem;
-                font-weight: 700;
             }
 
             .stTabs [data-baseweb="tab-list"] {
@@ -215,30 +118,6 @@ def inject_css() -> None:
             .stTabs [aria-selected="true"] {
                 background: rgba(56, 189, 248, 0.16) !important;
                 border-color: rgba(56, 189, 248, 0.45) !important;
-            }
-
-            .stTextInput label, .stSelectbox label, .stNumberInput label {
-                color: var(--muted) !important;
-                font-weight: 600 !important;
-            }
-
-            .stButton > button {
-                border-radius: 14px;
-                border: 1px solid rgba(56, 189, 248, 0.35);
-                background: linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(56, 189, 248, 0.12));
-                color: white;
-                font-weight: 700;
-            }
-
-            .stButton > button:hover {
-                border-color: rgba(56, 189, 248, 0.7);
-                color: white;
-            }
-            [data-testid="stMetricValue"] {
-                font-size: 1.35rem !important;
-                white-space: nowrap !important;
-                overflow: visible !important;
-                text-overflow: unset !important;
             }
         </style>
         """,
@@ -259,6 +138,8 @@ def init_state() -> None:
         st.session_state.chart_type = "Candlestick"
     if "period" not in st.session_state:
         st.session_state.period = "2y"
+    if "show_watchlist" not in st.session_state:
+        st.session_state.show_watchlist = True
 
 
 def current_period_options(interval: str) -> list[str]:
@@ -272,20 +153,60 @@ def normalize_period(interval: str) -> None:
         st.session_state.period = fallback
 
 
-def render_workspace_intro() -> None:
-    st.markdown(
-        """
-        <div class="workspace-shell">
-            <div class="workspace-kicker">Trading Workspace</div>
-            <div class="workspace-title">專業量化交易研究平台</div>
-            <p class="workspace-copy">多維度市場分析 · 智能策略回測 · AI 趨勢情境推演 → 掃描 → 決策</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+@st.cache_data(ttl=300, show_spinner=False)
+def get_market_data():
+    import yfinance as yf
+    tickers = ["^TWII", "^IXIC", "BTC-USD", "^VIX"]
+    res = {}
+    try:
+        df = yf.download(tickers, period="5d", progress=False)
+        closes = df['Close'] if 'Close' in df.columns else df
+        for t in tickers:
+            if t in closes.columns:
+                series = closes[t].dropna()
+                if len(series) >= 2:
+                    curr = float(series.iloc[-1])
+                    prev = float(series.iloc[-2])
+                    pct = (curr - prev) / prev
+                    res[t] = {"price": curr, "change": pct}
+                elif len(series) == 1:
+                    res[t] = {"price": float(series.iloc[0]), "change": 0.0}
+                else:
+                    res[t] = {"price": 0.0, "change": 0.0}
+            else:
+                res[t] = {"price": 0.0, "change": 0.0}
+        return res
+    except Exception:
+        return {t: {"price": 0.0, "change": 0.0} for t in tickers}
+
+
+def render_market_status_bar() -> None:
+    data = get_market_data()
+    cols = st.columns([1, 1, 1, 1, 2])
+    
+    mapping = {
+        "^TWII": "TAIEX",
+        "^IXIC": "NASDAQ",
+        "BTC-USD": "BTC",
+        "^VIX": "VIX"
+    }
+    
+    for i, t in enumerate(["^TWII", "^IXIC", "BTC-USD", "^VIX"]):
+        d = data.get(t, {"price": 0.0, "change": 0.0})
+        if t == "^VIX":
+            color = "inverse" if d["change"] != 0 else "off"
+        else:
+            color = "normal" if d["change"] >= 0 else "inverse"
+            
+        cols[i].metric(mapping[t], f"{d['price']:.2f}", f"{d['change']:.2%}", delta_color=color)
+    
+    with cols[4]:
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        st.markdown(f"<div style='text-align: right; color: #94a3b8; font-size: 0.95rem; margin-top: 1rem;'>Market Status<br><strong>{now_str} (TW)</strong></div>", unsafe_allow_html=True)
 
 
 def render_top_controls() -> dict[str, Any]:
+    st.markdown("---")
     strategies = StrategyRegistry.get_available_strategies()
     col1, col2, col3, col4, col5, col6 = st.columns([2.2, 1, 1, 1.25, 1, 0.95])
 
@@ -358,130 +279,99 @@ def render_strategy_controls(strategy_name: str) -> tuple[dict[str, Any], float]
 
 def latest_signal_label(signal: Any) -> tuple[str, str]:
     if signal == 1:
-        return "▲ 買進", "signal-buy"
+        return "▲ 看多", "signal-buy"
     if signal == -1:
-        return "▼ 賣出", "signal-sell"
+        return "▼ 看空", "signal-sell"
     return "◆ 觀望", "signal-hold"
 
 
 def render_kpi_row(result: dict[str, Any]) -> None:
-    df = result["df"]
     kpi = result["kpi"]
-    latest = df.iloc[-1]
+    latest = result["df"].iloc[-1]
     signal_text, _ = latest_signal_label(latest.get("signal", 0))
-    cols = st.columns(5)
-    cols[0].metric("Total Return", f"{kpi['total_return']:.2%}")
-    cols[1].metric("Sharpe", f"{kpi['sharpe']:.2f}")
-    cols[2].metric("Max Drawdown", f"{kpi['max_drawdown']:.2%}")
-    cols[3].metric("Close", f"{latest['close']:.2f}")
-    cols[4].metric("Signal", signal_text)
+
+    cols = st.columns(8)
+    
+    ret = kpi.get("total_return", 0)
+    cols[0].metric("Total Return", f"{ret:.2%}", delta=f"{ret:.2%}", delta_color="normal")
+    
+    sharpe = kpi.get("sharpe", 0)
+    cols[1].metric("Sharpe", f"{sharpe:.2f}")
+    
+    mdd = kpi.get("max_drawdown", 0)
+    cols[2].metric("Max DD", f"{mdd:.2%}", delta=f"{mdd:.2%}", delta_color="normal")
+    
+    wr = kpi.get("win_rate", 0)
+    cols[3].metric("Win Rate", f"{wr:.2%}", delta=f"{wr-0.5:.2%}", delta_color="normal")
+    
+    pf = kpi.get("profit_factor", 0)
+    cols[4].metric("Profit Factor", f"{pf:.2f}", delta=f"{pf-1:.2f}", delta_color="normal")
+    
+    trades = kpi.get("total_trades", 0)
+    cols[5].metric("Trades", f"{trades}")
+    
+    exp = kpi.get("exposure", 0)
+    cols[6].metric("Exposure", f"{exp:.2%}")
+    
+    cols[7].metric("Signal", signal_text)
 
 
-def render_market_panel(result: dict[str, Any], chart_type: str) -> None:
-    df = result["df"]
-    metadata = result["metadata"]
-    latest = df.iloc[-1]
-    advice = get_investment_advice(df)
-    projection = get_ai_projection(df)
-    signal_text, signal_class = latest_signal_label(latest.get("signal", 0))
-
-    left, right = st.columns([3.7, 1.3])
-    with left:
-        title = f"{metadata['symbol']}  |  {metadata['interval']}  |  {metadata['strategy_name']}"
-        st.plotly_chart(create_price_chart(df, title=title, chart_type=chart_type), use_container_width=True)
-    with right:
-        st.markdown(
-            f"""
-            <div class="panel-card">
-                <div class="mini-label">最新訊號</div>
-                <div class="signal-pill {signal_class}">{signal_text}</div>
-                <div style="height:0.8rem"></div>
-                <div class="mini-label">AI 情緒</div>
-                <div class="mini-value">{projection['sentiment']}</div>
-                <div class="mini-label" style="margin-top:0.7rem">分析時間</div>
-                <div>{metadata['generated_at']}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"""
-            <div class="panel-card">
-                <div class="mini-label">Decision Notes</div>
-                <div><strong>{advice['advice']}</strong></div>
-                <div style="color:#94a3b8; margin-top:0.5rem;">{'<br>'.join(advice['reasons'][:3])}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"""
-            <div class="panel-card">
-                <div class="mini-label">Risk Radar</div>
-                <div class="mini-value">{projection['risk_score']:.1f} / 100</div>
-                <div style="color:#94a3b8; margin-top:0.45rem;">{projection['risk_reason']}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+def create_macd_chart(df: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+    if 'macd' not in df.columns: return fig
+    
+    colors = ['#10b981' if val >= 0 else '#f43f5e' for val in df['macd_hist']]
+    fig.add_trace(go.Bar(x=df.index, y=df['macd_hist'], name='Hist', marker_color=colors, opacity=0.7))
+    fig.add_trace(go.Scatter(x=df.index, y=df['macd'], mode='lines', name='MACD', line=dict(color='#3b82f6')))
+    fig.add_trace(go.Scatter(x=df.index, y=df['macd_signal'], mode='lines', name='Signal', line=dict(color='#fbbf24')))
+    
+    fig.update_layout(
+        title=dict(text="MACD 指標", font=dict(size=16, color='white')),
+        template="plotly_dark",
+        height=300,
+        margin=dict(l=40, r=40, t=40, b=40),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        xaxis=dict(gridcolor='rgba(255, 255, 255, 0.05)'),
+        yaxis=dict(gridcolor='rgba(255, 255, 255, 0.05)')
+    )
+    return fig
 
 
 def render_analysis_tab(result: dict[str, Any], chart_type: str) -> None:
-    render_kpi_row(result)
-    st.markdown("### 市場分析圖表")
-    render_market_panel(result, chart_type)
-
     df = result["df"]
-    lower_left, lower_right = st.columns([1.45, 1])
-    with lower_left:
-        if result["metadata"]["strategy_name"] == "RSI_MACD":
-            overbought = result["metadata"]["parameters"].get("overbought", 70)
-            oversold = result["metadata"]["parameters"].get("oversold", 30)
+    metadata = result["metadata"]
+    
+    title = f"{metadata['symbol']}  |  {metadata['interval']}  |  {metadata['strategy_name']}"
+    st.plotly_chart(create_price_chart(df, title=title, chart_type=chart_type), use_container_width=True)
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        if metadata["strategy_name"] == "RSI_MACD":
+            overbought = metadata["parameters"].get("overbought", 70)
+            oversold = metadata["parameters"].get("oversold", 30)
             st.plotly_chart(create_rsi_chart(df, overbought, oversold), use_container_width=True)
         else:
-            st.info("選擇 RSI_MACD 策略以顯示動能指標圖。")
-    with lower_right:
-        forecast_df = predict_future_prices(df)
-        if forecast_df.empty:
-            st.info("資料不足，無法產生情境預測圖。")
-        else:
-            st.plotly_chart(create_forecast_chart(df, forecast_df), use_container_width=True)
+            st.plotly_chart(create_rsi_chart(df), use_container_width=True)
+    with c2:
+        st.plotly_chart(create_macd_chart(df), use_container_width=True)
 
 
 def render_backtest_tab(result: dict[str, Any]) -> None:
     df = result["df"]
     st.markdown("### 資產曲線")
-    top, bottom = st.columns([1.2, 1])
-    with top:
-        st.plotly_chart(create_equity_curve(df), use_container_width=True)
-    with bottom:
-        latest = df.iloc[-1]
-        st.markdown(
-            """
-            <div class="panel-card">
-                <div class="mini-label">持倉監控</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        col1, col2 = st.columns(2)
-        col1.metric("部位", f"{latest.get('position', 0):.0f}")
-        col2.metric("當期策略報酬", f"{latest.get('strategy_returns', 0):.2%}")
-        if "equity" in df.columns:
-            equity_peak = df["equity"].cummax()
-            drawdown = (df["equity"] / equity_peak - 1).min()
-            st.metric("最大回撤", f"{drawdown:.2%}")
-
-    display_cols = [
-        "open",
-        "high",
-        "low",
-        "close",
-        "signal",
-        "position",
-        "strategy_returns",
-        "equity",
-    ]
+    
+    fig = create_equity_curve(df)
+    if "returns" in df.columns:
+        bh_equity = (1 + df["returns"]).cumprod()
+        fig.add_trace(go.Scatter(
+            x=df.index, y=bh_equity,
+            mode='lines', name='Buy & Hold',
+            line=dict(color='gray', dash='dash')
+        ))
+    st.plotly_chart(fig, use_container_width=True)
+    
+    display_cols = ["open", "high", "low", "close", "signal", "position", "strategy_returns", "equity"]
     existing_cols = [col for col in display_cols if col in df.columns]
     st.markdown("### 最近交易明細")
     st.dataframe(df[existing_cols].tail(30), use_container_width=True, height=420)
@@ -490,26 +380,37 @@ def render_backtest_tab(result: dict[str, Any]) -> None:
 def render_ai_tab(result: dict[str, Any]) -> None:
     df = result["df"]
     projection = get_ai_projection(df)
+    advice = get_investment_advice(df)
     scenarios = projection.get("scenarios", {})
+    
     c1, c2, c3 = st.columns(3)
     c1.metric("Trend Score", f"{projection['trend_score']:.0f}")
     c2.metric("Risk Score", f"{projection['risk_score']:.0f}")
     c3.metric("AI Stance", projection["sentiment"])
 
-    left, right = st.columns([1.25, 1])
+    st.markdown("---")
+    left, right = st.columns(2)
     with left:
-        st.markdown("### AI 分析依據")
-        for reason in projection["trend_reasons"]:
+        st.markdown("#### Decision Notes")
+        st.info(f"**{advice['advice']}**")
+        for reason in advice['reasons']:
             st.write(f"- {reason}")
-        st.write(f"- {projection['risk_reason']}")
+            
+        st.markdown("#### Risk Radar")
+        st.warning(projection['risk_reason'])
+        
     with right:
-        st.markdown("### 未來 10 日情境")
+        st.markdown("#### 未來 10 日情境")
         if scenarios:
             st.write(f"- 🟢 樂觀：{scenarios['bullish']:.2f}")
             st.write(f"- ⚪ 中性：{scenarios['neutral_lower']:.2f} ~ {scenarios['neutral_upper']:.2f}")
             st.write(f"- 🔴 悲觀：{scenarios['bearish']:.2f}")
         else:
             st.info("資料不足，無法計算情境。")
+            
+        forecast_df = predict_future_prices(df)
+        if not forecast_df.empty:
+            st.plotly_chart(create_forecast_chart(df, forecast_df), use_container_width=True)
 
 
 def run_screener(symbols: list[str], strategy_name: str, params: dict[str, Any], tc: float, period: str, interval: str) -> pd.DataFrame:
@@ -556,55 +457,57 @@ def run_screener(symbols: list[str], strategy_name: str, params: dict[str, Any],
 
 def render_scanner_tab(strategy_name: str, params: dict[str, Any], tc: float, interval: str) -> None:
     st.markdown("### Scanner")
-    st.caption("輸入多個標的代碼（逗號分隔），系統將執行多維度分析並輸出分數排名。")
-
     default_symbols = "2330.TW, 2317.TW, 2454.TW, 2382.TW, 2881.TW"
     symbol_text = st.text_area("掃描清單", value=default_symbols, height=100)
     scan_period = st.selectbox("掃描區間", ["1mo", "3mo", "6mo", "1y"], index=1, key="scanner_period")
     if st.button("開始掃描", use_container_width=True):
         symbols = [item.strip() for item in symbol_text.split(",") if item.strip()]
-        if not symbols:
-            st.warning("請輸入至少一個標的代碼。")
-        else:
+        if symbols:
             with st.spinner("掃描中..."):
                 result_df = run_screener(symbols, strategy_name, params, tc, scan_period, interval)
             st.success(f"掃描完成！共分析 {len(result_df)} 個標的。")
 
+
+def render_watchlist_panel(symbol: str):
+    if not st.session_state.show_watchlist:
+        if st.button("▶", help="展開 Watchlist"):
+            st.session_state.show_watchlist = True
+            st.rerun()
+        return
+
+    c1, c2 = st.columns([3, 1])
+    c1.markdown("### ⭐ Watchlist")
+    if c2.button("◀", help="收起"):
+        st.session_state.show_watchlist = False
+        st.rerun()
+
     watchlist = get_watchlist()
+    if symbol:
+        if symbol in watchlist:
+            if st.button(f"❌ 移除 {symbol}", use_container_width=True):
+                remove_from_watchlist(symbol)
+                st.rerun()
+        else:
+            if st.button(f"⭐ 加入 {symbol}", use_container_width=True):
+                save_to_watchlist(symbol)
+                st.rerun()
+
+    st.markdown("---")
     if watchlist:
-        st.markdown("### 最愛清單掃描")
-        if st.button("掃描最愛清單", use_container_width=True):
-            with st.spinner("分析 watchlist 中..."):
-                result_df = run_screener(watchlist, strategy_name, params, tc, "3mo", interval)
-            st.success(f"Watchlist 掃描完成！共分析 {len(result_df)} 個標的。")
+        for item in watchlist:
+            btn_type = "primary" if item == symbol else "secondary"
+            if st.button(item, key=f"wl_{item}", use_container_width=True, type=btn_type):
+                st.session_state.symbol_input = item
+                st.rerun()
+    else:
+        st.info("清單為空")
 
 
 def render_sidebar(symbol: str, strategy_name: str, interval: str) -> None:
     with st.sidebar:
-        st.markdown("## Workspace Sidecar")
-        st.caption("管理最愛 watchlist，快速切換標的或一鍵產出報告。")
-
-        watchlist = get_watchlist()
-        st.markdown("### Watchlist")
-        if symbol:
-            if symbol in watchlist:
-                if st.button(f"❌ 移除 {symbol}", use_container_width=True):
-                    remove_from_watchlist(symbol)
-                    st.rerun()
-            else:
-                if st.button(f"⭐ 加入 {symbol}", use_container_width=True):
-                    save_to_watchlist(symbol)
-                    st.rerun()
-
-        if watchlist:
-            for item in watchlist:
-                if st.button(item, key=f"watch_{item}", use_container_width=True):
-                    st.session_state.symbol_input = item
-                    st.rerun()
-        else:
-            st.info("清單為空，請加入標的。")
-
+        st.markdown("## Sidebar Tools")
         st.markdown("### Daily Report")
+        watchlist = get_watchlist()
         if st.button("產生每日報告", use_container_width=True):
             targets = watchlist if watchlist else ([symbol] if symbol else [])
             if not targets:
@@ -619,9 +522,7 @@ def render_sidebar(symbol: str, strategy_name: str, interval: str) -> None:
 
         st.markdown("### Recent History")
         history = get_history(8)
-        if history.empty:
-            st.caption("尚無分析紀錄。")
-        else:
+        if not history.empty:
             st.dataframe(history, use_container_width=True, height=240)
             if st.button("清除紀錄", use_container_width=True):
                 pd.DataFrame(columns=["timestamp", "symbol", "interval", "score", "sentiment"]).to_csv(HISTORY_FILE, index=False)
@@ -645,8 +546,9 @@ def execute_analysis(symbol: str, strategy_name: str, params: dict[str, Any], tc
 def main() -> None:
     init_state()
     inject_css()
-    render_workspace_intro()
-
+    
+    render_market_status_bar()
+    
     control_state = render_top_controls()
     strategy_params, transaction_cost = render_strategy_controls(control_state["strategy_name"])
     render_sidebar(control_state["symbol"], control_state["strategy_name"], control_state["interval"])
@@ -665,35 +567,40 @@ def main() -> None:
         except Exception as exc:
             st.error(f"分析失敗：{exc}")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["分析", "回測", "Scanner", "AI"])
-    latest_result = st.session_state.get("latest_result")
-    chart_type = st.session_state.get("last_chart_type", control_state["chart_type"])
+    if st.session_state.show_watchlist:
+        left_col, right_col = st.columns([1, 4.5])
+    else:
+        left_col, right_col = st.columns([0.1, 4.5])
+        
+    with left_col:
+        render_watchlist_panel(control_state["symbol"])
+        
+    with right_col:
+        latest_result = st.session_state.get("latest_result")
+        chart_type = st.session_state.get("last_chart_type", control_state["chart_type"])
 
-    with tab1:
         if latest_result:
+            render_kpi_row(latest_result)
             render_analysis_tab(latest_result, chart_type)
+            
+            tabs = st.tabs(["📈 回測", "🔍 Scanner", "🤖 AI Projection", "📦 匯出"])
+            with tabs[0]:
+                render_backtest_tab(latest_result)
+            with tabs[1]:
+                render_scanner_tab(
+                    control_state["strategy_name"],
+                    strategy_params,
+                    transaction_cost,
+                    control_state["interval"],
+                )
+            with tabs[2]:
+                render_ai_tab(latest_result)
+            with tabs[3]:
+                df = latest_result["df"]
+                csv = df.to_csv(index=True).encode('utf-8')
+                st.download_button("下載資料 CSV", csv, "data.csv", "text/csv")
         else:
             st.info("請點擊上方 Run 按鈕開始分析，結果將顯示於此頁。")
-
-    with tab2:
-        if latest_result:
-            render_backtest_tab(latest_result)
-        else:
-            st.info("請先執行分析，回測績效將顯示於此頁。")
-
-    with tab3:
-        render_scanner_tab(
-            control_state["strategy_name"],
-            strategy_params,
-            transaction_cost,
-            control_state["interval"],
-        )
-
-    with tab4:
-        if latest_result:
-            render_ai_tab(latest_result)
-        else:
-            st.info("請先執行分析，AI 情境推演結果將顯示於此頁。")
 
 
 if __name__ == "__main__":
