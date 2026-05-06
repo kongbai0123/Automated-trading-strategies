@@ -92,27 +92,55 @@ def inject_css() -> None:
             }
 
             .block-container {
-                padding-top: 1.2rem;
-                padding-bottom: 2rem;
+                padding-top: 0rem;
+                padding-bottom: 1rem;
+                max-width: 100%;
             }
 
+            /* Compact Ticker Bar */
+            .ticker-bar {
+                background: rgba(15, 23, 42, 0.6);
+                border-bottom: 1px solid var(--line);
+                padding: 0.4rem 1rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 0.85rem;
+                backdrop-filter: blur(8px);
+                margin-bottom: 0.5rem;
+            }
+            .ticker-group { display: flex; gap: 1.5rem; }
+            .ticker-item { display: flex; align-items: center; gap: 0.4rem; }
+            .ticker-label { color: var(--muted); font-weight: 500; }
+            .ticker-val { font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+
+            /* Compact Metrics */
             [data-testid="stMetric"] {
                 background: var(--panel);
                 border: 1px solid var(--line);
-                border-radius: 12px;
-                padding: 0.8rem;
+                border-radius: 8px;
+                padding: 0.4rem 0.7rem !important;
                 backdrop-filter: blur(12px);
             }
+            [data-testid="stMetricValue"] { font-size: 1.1rem !important; }
+            [data-testid="stMetricDelta"] { font-size: 0.8rem !important; }
 
-            .stTabs [data-baseweb="tab-list"] {
-                gap: 0.5rem;
+            /* Toolbar Styling */
+            .compact-toolbar {
+                background: rgba(30, 41, 59, 0.4);
+                padding: 0.25rem 0.5rem;
+                border-radius: 6px;
+                border: 1px solid var(--line);
+                margin-bottom: 1rem;
             }
 
+            .stTabs [data-baseweb="tab-list"] { gap: 0.5rem; }
             .stTabs [data-baseweb="tab"] {
                 background: rgba(15, 23, 42, 0.55);
                 border: 1px solid var(--line);
-                border-radius: 999px;
-                padding: 0.4rem 0.9rem;
+                border-radius: 6px;
+                padding: 0.3rem 0.8rem;
+                font-size: 0.85rem;
             }
 
             .stTabs [aria-selected="true"] {
@@ -182,50 +210,55 @@ def get_market_data():
 
 def render_market_status_bar() -> None:
     data = get_market_data()
-    cols = st.columns([1, 1, 1, 1, 2])
+    mapping = {"^TWII": "TAIEX", "^IXIC": "NASDAQ", "BTC-USD": "BTC", "^VIX": "VIX"}
     
-    mapping = {
-        "^TWII": "TAIEX",
-        "^IXIC": "NASDAQ",
-        "BTC-USD": "BTC",
-        "^VIX": "VIX"
-    }
-    
-    for i, t in enumerate(["^TWII", "^IXIC", "BTC-USD", "^VIX"]):
+    ticker_items = []
+    for t in ["^TWII", "^IXIC", "BTC-USD", "^VIX"]:
         d = data.get(t, {"price": 0.0, "change": 0.0})
+        color = "#10b981" if d["change"] >= 0 else "#f43f5e"
         if t == "^VIX":
-            color = "inverse" if d["change"] != 0 else "off"
-        else:
-            color = "normal" if d["change"] >= 0 else "inverse"
-            
-        cols[i].metric(mapping[t], f"{d['price']:.2f}", f"{d['change']:.2%}", delta_color=color)
+            color = "#f43f5e" if d["change"] > 0 else "#10b981"
+        
+        ticker_items.append(f"""
+            <div class="ticker-item">
+                <span class="ticker-label">{mapping[t]}</span>
+                <span class="ticker-val" style="color: {color};">{d['price']:,.2f} ({d['change']:+.2%})</span>
+            </div>
+        """)
     
-    with cols[4]:
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        st.markdown(f"<div style='text-align: right; color: #94a3b8; font-size: 0.95rem; margin-top: 1rem;'>Market Status<br><strong>{now_str} (TW)</strong></div>", unsafe_allow_html=True)
+    now_str = datetime.now().strftime("%H:%M:%S")
+    st.markdown(f"""
+        <div class="ticker-bar">
+            <div class="ticker-group">
+                {''.join(ticker_items)}
+            </div>
+            <div style="color: var(--muted); font-size: 0.8rem;">
+                <span style="margin-right: 10px;">● Live</span> {now_str} (TW)
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
 
 def render_top_controls() -> dict[str, Any]:
-    st.markdown("---")
     strategies = StrategyRegistry.get_available_strategies()
-    col1, col2, col3, col4, col5, col6 = st.columns([2.2, 1, 1, 1.25, 1, 0.95])
+    # Use a more compact layout for the toolbar
+    col1, col2, col3, col4, col5, col6 = st.columns([1.8, 0.8, 0.8, 1.2, 0.9, 0.7])
 
     with col1:
-        symbol = st.text_input("Symbol", key="symbol_input", placeholder="例如 2330.TW 或 AAPL")
+        symbol = st.text_input("Symbol", key="symbol_input", label_visibility="collapsed", placeholder="Symbol (e.g. 2330.TW)")
     with col2:
-        timeframe_label = st.selectbox("TF", list(TIMEFRAME_OPTIONS.keys()), key="timeframe_label")
+        timeframe_label = st.selectbox("TF", list(TIMEFRAME_OPTIONS.keys()), key="timeframe_label", label_visibility="collapsed")
     interval = TIMEFRAME_OPTIONS[timeframe_label]
     normalize_period(interval)
     period_options = current_period_options(interval)
 
     with col3:
-        period = st.selectbox("Period", period_options, key="period")
+        period = st.selectbox("Period", period_options, key="period", label_visibility="collapsed")
     with col4:
-        strategy_name = st.selectbox("Strategy", strategies, key="selected_strategy")
+        strategy_name = st.selectbox("Strategy", strategies, key="selected_strategy", label_visibility="collapsed")
     with col5:
-        chart_type = st.selectbox("Chart", ["Candlestick", "Line", "OHLC"], key="chart_type")
+        chart_type = st.selectbox("Chart", ["Candlestick", "Line", "OHLC"], key="chart_type", label_visibility="collapsed")
     with col6:
-        st.markdown("<div style='height: 1.85rem;'></div>", unsafe_allow_html=True)
         run_clicked = st.button("Run", use_container_width=True, type="primary")
 
     return {
@@ -286,34 +319,41 @@ def latest_signal_label(signal: Any) -> tuple[str, str]:
 
 
 def render_kpi_row(result: dict[str, Any]) -> None:
+    """Only shows the 4 Primary KPIs for immediate decision making."""
     kpi = result["kpi"]
     latest = result["df"].iloc[-1]
     signal_text, _ = latest_signal_label(latest.get("signal", 0))
 
-    cols = st.columns(8)
+    cols = st.columns(4)
     
     ret = kpi.get("total_return", 0)
     cols[0].metric("Total Return", f"{ret:.2%}", delta=f"{ret:.2%}", delta_color="normal")
     
     sharpe = kpi.get("sharpe", 0)
-    cols[1].metric("Sharpe", f"{sharpe:.2f}")
+    cols[1].metric("Sharpe Ratio", f"{sharpe:.2f}")
     
     mdd = kpi.get("max_drawdown", 0)
-    cols[2].metric("Max DD", f"{mdd:.2%}", delta=f"{mdd:.2%}", delta_color="normal")
+    cols[2].metric("Max Drawdown", f"{mdd:.2%}", delta=f"{mdd:.2%}", delta_color="normal")
+    
+    cols[3].metric("Signal", signal_text)
+
+
+def render_secondary_stats(result: dict[str, Any]) -> None:
+    """Shows detailed stats for the Backtest workspace."""
+    kpi = result["kpi"]
+    cols = st.columns(4)
     
     wr = kpi.get("win_rate", 0)
-    cols[3].metric("Win Rate", f"{wr:.2%}", delta=f"{wr-0.5:.2%}", delta_color="normal")
+    cols[0].metric("Win Rate", f"{wr:.2%}", delta=f"{wr-0.5:.2%}", delta_color="normal")
     
     pf = kpi.get("profit_factor", 0)
-    cols[4].metric("Profit Factor", f"{pf:.2f}", delta=f"{pf-1:.2f}", delta_color="normal")
+    cols[1].metric("Profit Factor", f"{pf:.2f}", delta=f"{pf-1:.2f}", delta_color="normal")
     
     trades = kpi.get("total_trades", 0)
-    cols[5].metric("Trades", f"{trades}")
+    cols[2].metric("Total Trades", f"{trades}")
     
     exp = kpi.get("exposure", 0)
-    cols[6].metric("Exposure", f"{exp:.2%}")
-    
-    cols[7].metric("Signal", signal_text)
+    cols[3].metric("Exposure", f"{exp:.2%}")
 
 
 def create_macd_chart(df: pd.DataFrame) -> go.Figure:
@@ -359,8 +399,11 @@ def render_analysis_tab(result: dict[str, Any], chart_type: str) -> None:
 
 def render_backtest_tab(result: dict[str, Any]) -> None:
     df = result["df"]
-    st.markdown("### 資產曲線")
+    st.markdown("### 策略回測統計")
+    render_secondary_stats(result)
     
+    st.markdown("---")
+    st.markdown("### 資產曲線")
     fig = create_equity_curve(df)
     if "returns" in df.columns:
         bh_equity = (1 + df["returns"]).cumprod()
@@ -475,32 +518,34 @@ def render_watchlist_panel(symbol: str):
             st.rerun()
         return
 
-    c1, c2 = st.columns([3, 1])
+    c1, c2 = st.columns([4, 1])
     c1.markdown("### ⭐ Watchlist")
     if c2.button("◀", help="收起"):
         st.session_state.show_watchlist = False
         st.rerun()
 
     watchlist = get_watchlist()
-    if symbol:
-        if symbol in watchlist:
-            if st.button(f"❌ 移除 {symbol}", use_container_width=True):
-                remove_from_watchlist(symbol)
-                st.rerun()
-        else:
-            if st.button(f"⭐ 加入 {symbol}", use_container_width=True):
-                save_to_watchlist(symbol)
-                st.rerun()
-
     st.markdown("---")
     if watchlist:
         for item in watchlist:
+            # Compact buttons for watchlist
             btn_type = "primary" if item == symbol else "secondary"
             if st.button(item, key=f"wl_{item}", use_container_width=True, type=btn_type):
                 st.session_state.symbol_input = item
                 st.rerun()
     else:
         st.info("清單為空")
+
+    if symbol:
+        st.markdown("---")
+        if symbol in watchlist:
+            if st.button(f"Remove {symbol}", use_container_width=True, type="secondary"):
+                remove_from_watchlist(symbol)
+                st.rerun()
+        else:
+            if st.button(f"Add {symbol}", use_container_width=True, type="primary"):
+                save_to_watchlist(symbol)
+                st.rerun()
 
 
 def render_sidebar(symbol: str, strategy_name: str, interval: str) -> None:
@@ -568,9 +613,9 @@ def main() -> None:
             st.error(f"分析失敗：{exc}")
 
     if st.session_state.show_watchlist:
-        left_col, right_col = st.columns([1, 4.5])
+        left_col, right_col = st.columns([1, 6])
     else:
-        left_col, right_col = st.columns([0.1, 4.5])
+        left_col, right_col = st.columns([0.1, 6.9])
         
     with left_col:
         render_watchlist_panel(control_state["symbol"])
