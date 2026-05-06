@@ -26,3 +26,6 @@ Thumbs.db
 # App specific
 configs/
 *.log
+reports/
+*.html
+.streamlit/
