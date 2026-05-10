@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.app_services.workspace_state import (
+from src.app_services.timeframe_options import (
     normalize_period_for_timeframe,
     period_options_for_timeframe,
 )

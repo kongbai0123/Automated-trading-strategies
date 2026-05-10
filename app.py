@@ -13,13 +13,15 @@ from src.app_services.analysis_service import (
 from src.app_services.error_presenter import build_controlled_error_payload
 from src.app_services.execution_service import execute_latest_signal
 from src.app_services.market_status_service import build_market_status_items
+from src.app_services.timeframe_options import (
+    normalize_period_for_timeframe,
+    period_options_for_timeframe,
+)
 from src.app_services.workspace_state import (
     build_watchlist_rows,
     current_engine,
     current_journal,
     init_workspace_state,
-    normalize_period_for_timeframe,
-    period_options_for_timeframe,
 )
 from src.charting import (
     create_equity_curve,
