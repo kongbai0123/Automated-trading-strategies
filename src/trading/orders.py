@@ -32,7 +32,9 @@ class OrderStateMachine:
     @staticmethod
     def apply_fill(order: Order, fill_quantity: int) -> Order:
         if order.status not in {OrderStatus.ACCEPTED, OrderStatus.PARTIALLY_FILLED}:
-            raise ValueError("Order must be ACCEPTED or PARTIALLY_FILLED before fill application")
+            raise ValueError(
+                "Order must be ACCEPTED or PARTIALLY_FILLED before fill application"
+            )
         if fill_quantity <= 0:
             raise ValueError("fill_quantity must be positive")
         next_filled = order.filled_quantity + fill_quantity

@@ -2,13 +2,13 @@ import datetime
 import json
 import os
 
-import pandas as pd
 
 from .analytics import calculate_kpi
 from .backtest import BacktestEngine
 from .indicators import add_indicators
 from .market_data import fetch_market_data
 from .strategy_registry import StrategyRegistry
+
 
 def load_config() -> dict:
     config_path = "configs/ui_config.json"
@@ -17,10 +17,11 @@ def load_config() -> dict:
     with open(config_path, "r") as f:
         return json.load(f)
 
+
 def run_backtest_pipeline(
     symbol: str,
     strategy_name: str,
-    strategy_params: dict, 
+    strategy_params: dict,
     transaction_cost: float,
     period: str = "2y",
     interval: str = "1d",
@@ -73,6 +74,10 @@ def run_backtest_pipeline(
         "data_freshness": market_result.data_freshness,
         "last_bar_time": market_result.last_bar_time,
         "is_stale": market_result.is_stale,
+        "provider_name": market_result.provider_name,
+        "attempted_sources": market_result.attempted_sources,
+        "fetch_latency_ms": market_result.fetch_latency_ms,
+        "cache_hit": market_result.cache_hit,
     }
 
     return {

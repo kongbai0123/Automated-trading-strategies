@@ -1,7 +1,14 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from .models import DecisionStatus, OrderIntent, PortfolioState, PositionState, RiskDecision, generate_trace_id
+from .models import (
+    DecisionStatus,
+    OrderIntent,
+    PortfolioState,
+    PositionState,
+    RiskDecision,
+    generate_trace_id,
+)
 
 
 @dataclass(frozen=True)
@@ -51,7 +58,9 @@ class RiskEngine:
         if self._config.cooldown_minutes > 0 and last_entry_times:
             last_entry = last_entry_times.get(intent.symbol)
             if last_entry is not None:
-                if intent.market_time < last_entry + timedelta(minutes=self._config.cooldown_minutes):
+                if intent.market_time < last_entry + timedelta(
+                    minutes=self._config.cooldown_minutes
+                ):
                     reject_reasons.append("cooldown")
 
         constraints_checked.append("max_position_size")
@@ -66,12 +75,17 @@ class RiskEngine:
             )
 
             constraints_checked.append("max_symbol_exposure")
-            next_symbol_exposure = (current_position.quantity * reference_price) + estimated_notional
+            next_symbol_exposure = (
+                current_position.quantity * reference_price
+            ) + estimated_notional
             if next_symbol_exposure > self._config.max_symbol_exposure:
                 reject_reasons.append("max_symbol_exposure")
 
             constraints_checked.append("max_total_exposure")
-            if portfolio.gross_exposure + estimated_notional > self._config.max_total_exposure:
+            if (
+                portfolio.gross_exposure + estimated_notional
+                > self._config.max_total_exposure
+            ):
                 reject_reasons.append("max_total_exposure")
 
             constraints_checked.append("cash_constraint")
@@ -104,7 +118,9 @@ class RiskEngine:
             decision_status=decision_status,
             reject_reasons=reject_reasons,
             warning_reasons=warning_reasons,
-            adjusted_quantity=min(intent.requested_quantity, self._config.max_position_size),
+            adjusted_quantity=min(
+                intent.requested_quantity, self._config.max_position_size
+            ),
             risk_score=(
                 len(reject_reasons) / max(len(constraints_checked), 1)
                 if reject_reasons

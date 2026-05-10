@@ -8,7 +8,10 @@ import streamlit as st
 
 from src.trading.models import PortfolioState
 from src.ui.components.chart_workspace import render_chart_workspace, render_kpi_strip
-from src.ui.components.trade_lifecycle_panel import build_lifecycle_snapshot, render_trade_lifecycle_panel
+from src.ui.components.trade_lifecycle_panel import (
+    build_lifecycle_snapshot,
+    render_trade_lifecycle_panel,
+)
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,7 @@ def render_trading_workspace(view: TradingWorkspaceView) -> None:
             summary=view.summary,
         )
     with lifecycle_col:
-        snapshot = build_lifecycle_snapshot(view.journal_events, portfolio_state=view.portfolio_state)
+        snapshot = build_lifecycle_snapshot(
+            view.journal_events, portfolio_state=view.portfolio_state
+        )
         render_trade_lifecycle_panel(snapshot)
-

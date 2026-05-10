@@ -43,4 +43,3 @@ def render_market_bar(
         ),
         unsafe_allow_html=True,
     )
-

@@ -3,6 +3,7 @@ from indicators import add_indicators
 from strategies import RSIMACDStrategy
 import os
 
+
 def run_strategy_demo():
     # We assume data/2330.TW.csv is fetched. For demo purposes we check if it exists
     filepath = "data/2330.TW.csv"
@@ -15,10 +16,7 @@ def run_strategy_demo():
     df = add_indicators(df)
 
     # Strategy
-    strategy = RSIMACDStrategy(
-        rsi_col="rsi_14",
-        macd_hist_col="macd_hist"
-    )
+    strategy = RSIMACDStrategy(rsi_col="rsi_14", macd_hist_col="macd_hist")
     signals = strategy.generate_signals(df)
     df["signal"] = signals
 
@@ -28,7 +26,7 @@ def run_strategy_demo():
     # Formal Backtest Engine
     from backtest import BacktestEngine
     from analytics import calculate_kpi
-    
+
     engine = BacktestEngine(transaction_cost=0.001)
     df_bt = engine.run(df)
 
@@ -38,5 +36,6 @@ def run_strategy_demo():
     for k, v in kpi.items():
         print(f"{k}: {v:.4f}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     run_strategy_demo()

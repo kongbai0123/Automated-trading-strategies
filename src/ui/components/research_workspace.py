@@ -23,4 +23,3 @@ def render_research_workspace(
         st.markdown("#### Notes")
         for note in notes:
             st.write(f"- {note}")
-

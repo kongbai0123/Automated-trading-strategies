@@ -7,7 +7,9 @@ from src.trading.models import PortfolioState, PositionState
 from src.ui.components.trade_lifecycle_panel import build_lifecycle_snapshot
 
 
-def _event(event_type: EventType, aggregate_id: str, payload: dict[str, object], minute: int) -> JournalEvent:
+def _event(
+    event_type: EventType, aggregate_id: str, payload: dict[str, object], minute: int
+) -> JournalEvent:
     timestamp = datetime(2026, 5, 10, 9, minute, 0)
     return JournalEvent(
         event_id=f"evt:{aggregate_id}:{event_type.value}",
@@ -40,7 +42,12 @@ def test_lifecycle_snapshot_exposes_trading_workflow_state() -> None:
             },
             2,
         ),
-        _event(EventType.INTENT_APPROVED_FOR_EXECUTION, "intent:1", {"signal_id": "signal:1"}, 3),
+        _event(
+            EventType.INTENT_APPROVED_FOR_EXECUTION,
+            "intent:1",
+            {"signal_id": "signal:1"},
+            3,
+        ),
         _event(EventType.ORDER_SUBMITTED, "order:1", {"intent_id": "intent:1"}, 4),
         _event(EventType.ORDER_ACCEPTED, "order:1", {"intent_id": "intent:1"}, 5),
         _event(
@@ -70,7 +77,9 @@ def test_lifecycle_snapshot_exposes_trading_workflow_state() -> None:
     ]
     portfolio_state = PortfolioState(
         cash=999000.0,
-        positions={"2330.TW": PositionState(symbol="2330.TW", quantity=10, average_price=100.0)},
+        positions={
+            "2330.TW": PositionState(symbol="2330.TW", quantity=10, average_price=100.0)
+        },
         realized_pnl=0.0,
         unrealized_pnl=0.0,
         equity=1000000.0,
@@ -120,3 +129,30 @@ def test_lifecycle_snapshot_marks_rejected_intent_without_order() -> None:
     assert snapshot.latest_risk["reject_reasons"] == ["cash_constraint"]
     assert snapshot.latest_order is None
     assert snapshot.open_orders == []
+
+
+def test_lifecycle_snapshot_keeps_accepted_order_open_until_terminal_event() -> None:
+    accepted_events = [
+        _event(EventType.ORDER_ACCEPTED, "order:open", {"intent_id": "intent:1"}, 0),
+    ]
+
+    open_snapshot = build_lifecycle_snapshot(accepted_events)
+
+    assert open_snapshot.latest_order == {
+        "order_id": "order:open",
+        "status": "ACCEPTED",
+        "intent_id": "intent:1",
+        "symbol": None,
+    }
+    assert open_snapshot.open_orders == [
+        {"order_id": "order:open", "status": "ACCEPTED", "intent_id": "intent:1"}
+    ]
+
+    filled_snapshot = build_lifecycle_snapshot(
+        [
+            *accepted_events,
+            _event(EventType.ORDER_FILLED, "order:open", {"intent_id": "intent:1"}, 1),
+        ]
+    )
+
+    assert filled_snapshot.open_orders == []

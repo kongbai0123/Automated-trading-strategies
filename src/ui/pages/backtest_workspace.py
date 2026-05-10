@@ -23,4 +23,3 @@ def render_backtest_workspace(view: BacktestWorkspaceView) -> None:
     if view.equity_chart is not None:
         st.plotly_chart(view.equity_chart, use_container_width=True)
     st.dataframe(view.dataframe.tail(50), use_container_width=True)
-

@@ -2,6 +2,7 @@ import os
 
 import pandas as pd
 
+
 def validate_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     """
     Validate the DataFrame to ensure it has the correct OHLCV format.

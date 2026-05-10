@@ -154,5 +154,6 @@ def test_paper_flow_supports_partial_fills_and_keeps_open_order_until_complete()
     assert [
         event.event_type
         for event in journal.read_all()
-        if event.event_type in {EventType.ORDER_PARTIALLY_FILLED, EventType.ORDER_FILLED}
+        if event.event_type
+        in {EventType.ORDER_PARTIALLY_FILLED, EventType.ORDER_FILLED}
     ] == [EventType.ORDER_PARTIALLY_FILLED, EventType.ORDER_FILLED]

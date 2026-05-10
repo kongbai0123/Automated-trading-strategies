@@ -35,4 +35,3 @@ def render_watchlist(
             if on_select is not None:
                 on_select(row.symbol)
         st.caption(f"Vol {volume_text}")
-

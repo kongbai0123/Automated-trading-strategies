@@ -1,4 +1,11 @@
-from .models import BrokerPosition, IntentStatus, OrderIntent, OrderSide, SignalEvent, generate_trace_id
+from .models import (
+    BrokerPosition,
+    IntentStatus,
+    OrderIntent,
+    OrderSide,
+    SignalEvent,
+    generate_trace_id,
+)
 
 __all__ = [
     "BrokerPosition",

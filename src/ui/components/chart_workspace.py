@@ -26,4 +26,3 @@ def render_chart_workspace(
     st.plotly_chart(price_chart, use_container_width=True)
     if secondary_chart is not None:
         st.plotly_chart(secondary_chart, use_container_width=True)
-

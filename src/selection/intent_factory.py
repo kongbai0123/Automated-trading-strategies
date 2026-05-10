@@ -36,7 +36,9 @@ class IntentFactory:
         order_type: str,
     ) -> OrderIntent:
         signal = SignalEvent(
-            signal_id=generate_trace_id("signal", run_id, candidate.symbol, candidate.market_time.isoformat()),
+            signal_id=generate_trace_id(
+                "signal", run_id, candidate.symbol, candidate.market_time.isoformat()
+            ),
             run_id=run_id,
             strategy_id=candidate.strategy_id,
             symbol=candidate.symbol,

@@ -14,7 +14,6 @@ from .models import (
     SignalEvent,
     generate_trace_id,
 )
-from .orders import OrderStateMachine
 from .portfolio import PortfolioEngine
 from .risk import RiskConfig, RiskEngine
 
@@ -27,7 +26,9 @@ class ProcessSignalResult:
 
 
 class TradingEngine:
-    def __init__(self, risk_engine: RiskEngine, journal: InMemoryJournal, starting_cash: float) -> None:
+    def __init__(
+        self, risk_engine: RiskEngine, journal: InMemoryJournal, starting_cash: float
+    ) -> None:
         self._risk_engine = risk_engine
         self._journal = journal
         self._starting_cash = starting_cash
@@ -36,7 +37,9 @@ class TradingEngine:
         self._execution_policy = None
         self._portfolio_engine = PortfolioEngine()
 
-        if not self._journal.has_event(EventType.PORTFOLIO_INITIALIZED, "portfolio:main"):
+        if not self._journal.has_event(
+            EventType.PORTFOLIO_INITIALIZED, "portfolio:main"
+        ):
             self._journal.append(
                 JournalEvent(
                     event_id=generate_trace_id("evt", "portfolio:main", "initialized"),
@@ -56,7 +59,11 @@ class TradingEngine:
         journal: InMemoryJournal,
         starting_cash: float = 1_000_000.0,
     ) -> "TradingEngine":
-        return cls(risk_engine=RiskEngine(risk_config), journal=journal, starting_cash=starting_cash)
+        return cls(
+            risk_engine=RiskEngine(risk_config),
+            journal=journal,
+            starting_cash=starting_cash,
+        )
 
     @classmethod
     def for_paper_trading(
@@ -65,7 +72,11 @@ class TradingEngine:
         journal: InMemoryJournal,
         starting_cash: float = 1_000_000.0,
     ) -> "TradingEngine":
-        engine = cls(risk_engine=RiskEngine(risk_config), journal=journal, starting_cash=starting_cash)
+        engine = cls(
+            risk_engine=RiskEngine(risk_config),
+            journal=journal,
+            starting_cash=starting_cash,
+        )
         engine._broker = PaperBrokerAdapter()
         engine._execution_policy = NextBarExecutionPolicy()
         return engine
@@ -80,14 +91,20 @@ class TradingEngine:
     def _last_entry_times(self) -> dict[str, datetime]:
         last_entries: dict[str, datetime] = {}
         for event in self._journal.read_all():
-            if event.event_type in {EventType.ORDER_PARTIALLY_FILLED, EventType.ORDER_FILLED, EventType.FILL_RECORDED}:
+            if event.event_type in {
+                EventType.ORDER_PARTIALLY_FILLED,
+                EventType.ORDER_FILLED,
+                EventType.FILL_RECORDED,
+            }:
                 symbol = event.payload.get("symbol")
                 side = event.payload.get("side")
                 if symbol and side == "BUY":
                     last_entries[symbol] = event.market_time
         return last_entries
 
-    def _build_intent_and_decision(self, signal: SignalEvent, requested_quantity: int) -> tuple[OrderIntent, RiskDecision]:
+    def _build_intent_and_decision(
+        self, signal: SignalEvent, requested_quantity: int
+    ) -> tuple[OrderIntent, RiskDecision]:
         intent = OrderIntent.from_signal(
             signal=signal,
             intent_id=generate_trace_id("intent", signal.signal_id, "market"),
@@ -97,7 +114,9 @@ class TradingEngine:
             reason="generated from signal",
             expires_at=signal.market_time + timedelta(days=1),
         )
-        open_orders = self._broker.list_open_orders() if self._broker is not None else []
+        open_orders = (
+            self._broker.list_open_orders() if self._broker is not None else []
+        )
         reference_price = float(signal.metadata.get("reference_price", 1.0))
         decision = self._risk_engine.evaluate(
             intent=intent,
@@ -155,15 +174,24 @@ class TradingEngine:
             event_id=generate_trace_id("evt", intent.intent_id, "intent_created"),
             event_type=EventType.INTENT_CREATED,
             aggregate_id=intent.intent_id,
-            payload={"signal_id": intent.signal_id, "requested_quantity": intent.requested_quantity},
+            payload={
+                "signal_id": intent.signal_id,
+                "requested_quantity": intent.requested_quantity,
+            },
             created_at=intent.created_at,
             market_time=intent.market_time,
             processed_at=intent.processed_at,
         )
 
         self._append_event(
-            event_id=generate_trace_id("evt", decision.risk_decision_id, decision.decision_status.value.lower()),
-            event_type=EventType.RISK_APPROVED if decision.approved else EventType.RISK_REJECTED,
+            event_id=generate_trace_id(
+                "evt", decision.risk_decision_id, decision.decision_status.value.lower()
+            ),
+            event_type=(
+                EventType.RISK_APPROVED
+                if decision.approved
+                else EventType.RISK_REJECTED
+            ),
             aggregate_id=intent.intent_id,
             payload={
                 "risk_decision_id": decision.risk_decision_id,
@@ -187,15 +215,21 @@ class TradingEngine:
                 market_time=intent.market_time,
                 processed_at=intent.processed_at,
             )
-            return ProcessSignalResult(intent=intent, risk_decision=decision, order=None)
+            return ProcessSignalResult(
+                intent=intent, risk_decision=decision, order=None
+            )
 
         if not decision.approved:
             intent = replace(intent, status=IntentStatus.RISK_REJECTED)
-            return ProcessSignalResult(intent=intent, risk_decision=decision, order=None)
+            return ProcessSignalResult(
+                intent=intent, risk_decision=decision, order=None
+            )
 
         executable_intent = replace(intent, status=IntentStatus.APPROVED_FOR_EXECUTION)
         self._append_event(
-            event_id=generate_trace_id("evt", executable_intent.intent_id, "approved_for_execution"),
+            event_id=generate_trace_id(
+                "evt", executable_intent.intent_id, "approved_for_execution"
+            ),
             event_type=EventType.INTENT_APPROVED_FOR_EXECUTION,
             aggregate_id=executable_intent.intent_id,
             payload={"signal_id": executable_intent.signal_id},
@@ -210,12 +244,16 @@ class TradingEngine:
             side=executable_intent.side,
             order_type=executable_intent.order_type,
             quantity=executable_intent.requested_quantity,
-            market_time=self._execution_policy.next_market_time(signal.market_time, signal.timeframe),
+            market_time=self._execution_policy.next_market_time(
+                signal.market_time, signal.timeframe
+            ),
             submitted_at=signal.created_at,
             processed_at=signal.processed_at,
         )
         self._append_event(
-            event_id=generate_trace_id("evt", order_request.order_id, "order_submitted"),
+            event_id=generate_trace_id(
+                "evt", order_request.order_id, "order_submitted"
+            ),
             event_type=EventType.ORDER_SUBMITTED,
             aggregate_id=order_request.order_id,
             payload={"intent_id": order_request.intent_id},
@@ -243,7 +281,9 @@ class TradingEngine:
             market_time=order.market_time,
             processed_at=signal.processed_at,
         )
-        return ProcessSignalResult(intent=executable_intent, risk_decision=decision, order=filled)
+        return ProcessSignalResult(
+            intent=executable_intent, risk_decision=decision, order=filled
+        )
 
     def replay_portfolio(self, events: list[JournalEvent]) -> PortfolioState:
         return self._portfolio_engine.replay(events)
@@ -278,14 +318,18 @@ class TradingEngine:
         current_order = order
         fill_price = execution_price if execution_price is not None else 100.0
         for index, fill_quantity in enumerate(fill_quantities, start=1):
-            current_order = self._broker.apply_fill(current_order, fill_quantity=fill_quantity)
+            current_order = self._broker.apply_fill(
+                current_order, fill_quantity=fill_quantity
+            )
             order_event_type = (
                 EventType.ORDER_FILLED
                 if current_order.status.value == "FILLED"
                 else EventType.ORDER_PARTIALLY_FILLED
             )
             payload = {
-                "fill_id": generate_trace_id("fill", current_order.order_id, str(index)),
+                "fill_id": generate_trace_id(
+                    "fill", current_order.order_id, str(index)
+                ),
                 "order_id": current_order.order_id,
                 "symbol": current_order.symbol,
                 "side": current_order.side.value,
@@ -298,7 +342,9 @@ class TradingEngine:
                 "processed_at": processed_at,
             }
             self._append_event(
-                event_id=generate_trace_id("evt", current_order.order_id, "fill", str(index)),
+                event_id=generate_trace_id(
+                    "evt", current_order.order_id, "fill", str(index)
+                ),
                 event_type=order_event_type,
                 aggregate_id=current_order.order_id,
                 payload=payload,
@@ -307,7 +353,9 @@ class TradingEngine:
                 processed_at=processed_at,
             )
             self._append_event(
-                event_id=generate_trace_id("evt", current_order.order_id, "fill_recorded", str(index)),
+                event_id=generate_trace_id(
+                    "evt", current_order.order_id, "fill_recorded", str(index)
+                ),
                 event_type=EventType.FILL_RECORDED,
                 aggregate_id=current_order.order_id,
                 payload=payload,
@@ -322,7 +370,13 @@ class TradingEngine:
                 "equity": self._portfolio.equity,
             }
             self._append_event(
-                event_id=generate_trace_id("evt", "portfolio:main", current_order.order_id, "updated", str(index)),
+                event_id=generate_trace_id(
+                    "evt",
+                    "portfolio:main",
+                    current_order.order_id,
+                    "updated",
+                    str(index),
+                ),
                 event_type=EventType.PORTFOLIO_UPDATED,
                 aggregate_id="portfolio:main",
                 payload=portfolio_payload,
@@ -331,7 +385,13 @@ class TradingEngine:
                 processed_at=processed_at,
             )
             self._append_event(
-                event_id=generate_trace_id("evt", "portfolio:main", current_order.order_id, "snapshot", str(index)),
+                event_id=generate_trace_id(
+                    "evt",
+                    "portfolio:main",
+                    current_order.order_id,
+                    "snapshot",
+                    str(index),
+                ),
                 event_type=EventType.PORTFOLIO_SNAPSHOT,
                 aggregate_id="portfolio:main",
                 payload=portfolio_payload,

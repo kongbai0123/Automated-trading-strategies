@@ -4,7 +4,11 @@ from src.selection.intent_factory import IntentFactory
 from src.selection.ranking import RankingEngine
 from src.selection.regime import MarketRegime, RegimeFilter
 from src.selection.scoring import CandidateSignal, CandidateScorer
-from src.selection.sizing import FixedNotionalSizingPolicy, FixedUnitsSizingPolicy, VolatilityScaledSizingPolicy
+from src.selection.sizing import (
+    FixedNotionalSizingPolicy,
+    FixedUnitsSizingPolicy,
+    VolatilityScaledSizingPolicy,
+)
 from src.trading.events import EventType
 from src.trading.models import DecisionStatus, OrderSide, SignalEvent
 from src.trading.risk import RiskConfig, RiskEngine
@@ -129,7 +133,9 @@ def test_selection_flow_ranks_candidates_and_creates_intent():
 def test_sizing_policies_return_expected_quantities():
     fixed_units = FixedUnitsSizingPolicy(20)
     fixed_notional = FixedNotionalSizingPolicy(50_000.0)
-    volatility_scaled = VolatilityScaledSizingPolicy(risk_budget=2_000.0, atr_multiple=2.0)
+    volatility_scaled = VolatilityScaledSizingPolicy(
+        risk_budget=2_000.0, atr_multiple=2.0
+    )
 
     assert fixed_units.size(reference_price=100.0, atr_value=2.0) == 20
     assert fixed_notional.size(reference_price=100.0, atr_value=2.0) == 500

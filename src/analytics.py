@@ -12,7 +12,9 @@ def calculate_kpi(df: pd.DataFrame) -> dict:
     所有除以零的情況皆回傳 0（安全值），不拋出例外。
     """
     if "equity" not in df.columns or "strategy_returns" not in df.columns:
-        raise ValueError("DataFrame must contain 'equity' and 'strategy_returns' columns")
+        raise ValueError(
+            "DataFrame must contain 'equity' and 'strategy_returns' columns"
+        )
 
     equity = df["equity"]
     returns = df["strategy_returns"].dropna()

@@ -16,29 +16,46 @@ class PortfolioEngine:
         cash = portfolio.cash
 
         if fill.side is OrderSide.BUY:
-            total_cost = (fill.fill_quantity * fill.fill_price) + fill.commission + fill.slippage
+            total_cost = (
+                (fill.fill_quantity * fill.fill_price) + fill.commission + fill.slippage
+            )
             next_quantity = current.quantity + fill.fill_quantity
             next_average = (
-                ((current.quantity * current.average_price) + (fill.fill_quantity * fill.fill_price)) / next_quantity
+                (
+                    (current.quantity * current.average_price)
+                    + (fill.fill_quantity * fill.fill_price)
+                )
+                / next_quantity
                 if next_quantity
                 else 0.0
             )
-            positions[fill.symbol] = replace(current, quantity=next_quantity, average_price=next_average)
+            positions[fill.symbol] = replace(
+                current, quantity=next_quantity, average_price=next_average
+            )
             cash -= total_cost
         else:
             if fill.fill_quantity > current.quantity:
                 raise ValueError("Sell fill exceeds current position quantity")
-            proceeds = (fill.fill_quantity * fill.fill_price) - fill.commission - fill.slippage
+            proceeds = (
+                (fill.fill_quantity * fill.fill_price) - fill.commission - fill.slippage
+            )
             cash += proceeds
-            realized_pnl += (fill.fill_price - current.average_price) * fill.fill_quantity
+            realized_pnl += (
+                fill.fill_price - current.average_price
+            ) * fill.fill_quantity
             next_quantity = current.quantity - fill.fill_quantity
             next_average = current.average_price if next_quantity else 0.0
-            positions[fill.symbol] = replace(current, quantity=next_quantity, average_price=next_average)
+            positions[fill.symbol] = replace(
+                current, quantity=next_quantity, average_price=next_average
+            )
 
         if cash < 0:
             raise ValueError("Cash cannot become negative after fill application")
 
-        gross_exposure = sum(position.quantity * position.average_price for position in positions.values())
+        gross_exposure = sum(
+            position.quantity * position.average_price
+            for position in positions.values()
+        )
         equity = cash + gross_exposure
         return PortfolioState(
             cash=cash,
@@ -49,7 +66,9 @@ class PortfolioEngine:
             gross_exposure=gross_exposure,
         )
 
-    def mark_to_market(self, portfolio: PortfolioState, market_prices: dict[str, float]) -> PortfolioState:
+    def mark_to_market(
+        self, portfolio: PortfolioState, market_prices: dict[str, float]
+    ) -> PortfolioState:
         gross_exposure = 0.0
         unrealized_pnl = 0.0
         for symbol, position in portfolio.positions.items():
@@ -68,7 +87,11 @@ class PortfolioEngine:
 
     def replay(self, events: list[JournalEvent]) -> PortfolioState:
         init_event = next(
-            (event for event in events if event.event_type is EventType.PORTFOLIO_INITIALIZED),
+            (
+                event
+                for event in events
+                if event.event_type is EventType.PORTFOLIO_INITIALIZED
+            ),
             None,
         )
         if init_event is None:

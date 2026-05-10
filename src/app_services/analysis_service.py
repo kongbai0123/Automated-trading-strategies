@@ -30,11 +30,17 @@ def build_kpis(result: dict[str, Any]) -> dict[str, str]:
         "Return": f"{float(kpi.get('return', 0.0)):.2%}",
         "Win Rate": f"{float(kpi.get('win_rate', 0.0)):.2%}",
         "Max Drawdown": f"{float(kpi.get('max_drawdown', 0.0)):.2%}",
-        "Signal": str(int(result["df"]["signal"].iloc[-1])) if "signal" in result["df"].columns else "0",
+        "Signal": (
+            str(int(result["df"]["signal"].iloc[-1]))
+            if "signal" in result["df"].columns
+            else "0"
+        ),
     }
 
 
-def build_scanner_rows(result: dict[str, Any], *, symbol: str, strategy_name: str) -> list[dict[str, object]]:
+def build_scanner_rows(
+    result: dict[str, Any], *, symbol: str, strategy_name: str
+) -> list[dict[str, object]]:
     analysis = analyze_symbol_detailed(result["df"], symbol=symbol)
     latest_close = float(result["df"]["close"].iloc[-1])
     return [

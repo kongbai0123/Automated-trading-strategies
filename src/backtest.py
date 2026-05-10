@@ -1,9 +1,11 @@
 import pandas as pd
 
+
 class BacktestEngine:
     """
     Vectorized Backtesting Engine
     """
+
     def __init__(self, transaction_cost=0.001):
         self.transaction_cost = transaction_cost
 
@@ -15,6 +17,7 @@ class BacktestEngine:
 
         # Position (持倉)
         import numpy as np
+
         out["position"] = out[signal_col].replace(0, np.nan).ffill().fillna(0)
 
         # Return

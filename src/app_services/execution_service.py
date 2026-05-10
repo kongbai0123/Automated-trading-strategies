@@ -7,7 +7,10 @@ import pandas as pd
 
 from src.trading.engine import TradingEngine
 from src.trading.models import OrderSide, PortfolioState, SignalEvent, generate_trace_id
-from src.ui.components.trade_lifecycle_panel import LifecycleSnapshot, build_lifecycle_snapshot
+from src.ui.components.trade_lifecycle_panel import (
+    LifecycleSnapshot,
+    build_lifecycle_snapshot,
+)
 
 
 def build_signal_from_analysis(
@@ -33,8 +36,12 @@ def build_signal_from_analysis(
     created_at = created_at or datetime.now()
 
     return SignalEvent(
-        signal_id=generate_trace_id("signal", strategy_name, symbol, market_time.isoformat()),
-        run_id=generate_trace_id("run", symbol, timeframe, created_at.strftime("%Y%m%d")),
+        signal_id=generate_trace_id(
+            "signal", strategy_name, symbol, market_time.isoformat()
+        ),
+        run_id=generate_trace_id(
+            "run", symbol, timeframe, created_at.strftime("%Y%m%d")
+        ),
         strategy_id=strategy_name,
         symbol=symbol,
         timeframe=timeframe,

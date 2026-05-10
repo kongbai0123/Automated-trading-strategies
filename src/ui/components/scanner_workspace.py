@@ -13,4 +13,3 @@ def render_scanner_workspace(rows: Iterable[Mapping[str, object]]) -> None:
         st.info("No ranked candidates yet.")
         return
     st.dataframe(dataframe, use_container_width=True, hide_index=True)
-

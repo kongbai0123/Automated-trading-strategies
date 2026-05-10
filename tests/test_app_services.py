@@ -5,7 +5,10 @@ from datetime import datetime
 import pandas as pd
 
 from src.app_services.error_presenter import build_controlled_error_payload
-from src.app_services.execution_service import build_signal_from_analysis, build_trade_lifecycle_view_model
+from src.app_services.execution_service import (
+    build_signal_from_analysis,
+    build_trade_lifecycle_view_model,
+)
 from src.trading.events import EventType, JournalEvent
 from src.trading.models import PortfolioState
 

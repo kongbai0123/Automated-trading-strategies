@@ -18,4 +18,3 @@ def build_controlled_error_payload(
         "diagnostics": diagnostics,
         "message": message,
     }
-

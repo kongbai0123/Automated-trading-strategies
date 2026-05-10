@@ -1,6 +1,15 @@
 from datetime import datetime, timedelta
 
-from src.trading.models import DecisionStatus, OrderIntent, OrderRequest, OrderSide, PortfolioState, PositionState, SignalEvent, generate_trace_id
+from src.trading.models import (
+    DecisionStatus,
+    OrderIntent,
+    OrderRequest,
+    OrderSide,
+    PortfolioState,
+    PositionState,
+    SignalEvent,
+    generate_trace_id,
+)
 from src.trading.risk import RiskConfig, RiskEngine
 
 
@@ -88,7 +97,9 @@ def test_risk_rejects_gross_exposure_breach():
         portfolio=PortfolioState(
             cash=1_000_000.0,
             positions={
-                "2330.TW": PositionState(symbol="2330.TW", quantity=490, average_price=100.0),
+                "2330.TW": PositionState(
+                    symbol="2330.TW", quantity=490, average_price=100.0
+                ),
             },
             realized_pnl=0.0,
             unrealized_pnl=0.0,

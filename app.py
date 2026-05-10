@@ -1,16 +1,30 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
-import pandas as pd
 import streamlit as st
-import yfinance as yf
 
-from src.app_services.analysis_service import build_kpis, build_scanner_rows, load_analysis
+from src.app_services.analysis_service import (
+    build_kpis,
+    build_scanner_rows,
+    load_analysis,
+)
 from src.app_services.error_presenter import build_controlled_error_payload
 from src.app_services.execution_service import execute_latest_signal
-from src.app_services.workspace_state import build_watchlist_rows, current_engine, current_journal, init_workspace_state
-from src.charting import create_equity_curve, create_forecast_chart, create_price_chart, create_rsi_chart
+from src.app_services.market_status_service import build_market_status_items
+from src.app_services.workspace_state import (
+    build_watchlist_rows,
+    current_engine,
+    current_journal,
+    init_workspace_state,
+)
+from src.charting import (
+    create_equity_curve,
+    create_forecast_chart,
+    create_price_chart,
+    create_rsi_chart,
+)
 from src.market_data import ControlledMarketDataError
 from src.predictor import get_ai_projection, predict_future_prices
 from src.storage import get_watchlist, remove_from_watchlist, save_to_watchlist
@@ -19,13 +33,23 @@ from src.ui.components.data_status import render_data_status
 from src.ui.components.market_bar import MarketStatusItem, render_market_bar
 from src.ui.components.watchlist import render_watchlist
 from src.ui.components.workspace_toolbar import render_workspace_toolbar
-from src.ui.pages.backtest_workspace import BacktestWorkspaceView, render_backtest_workspace
+from src.ui.pages.backtest_workspace import (
+    BacktestWorkspaceView,
+    render_backtest_workspace,
+)
 from src.ui.pages.research_page import ResearchPageView, render_research_page
 from src.ui.pages.scanner_page import ScannerPageView, render_scanner_page
-from src.ui.pages.trading_workspace import TradingWorkspaceView, render_trading_workspace
+from src.ui.pages.trading_workspace import (
+    TradingWorkspaceView,
+    render_trading_workspace,
+)
 from src.ui_pipeline import load_config
 
-st.set_page_config(page_title="Professional Quant Trading Workspace", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Professional Quant Trading Workspace",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 TIMEFRAME_LABELS = {
     "1m": "1 Minute",
@@ -87,26 +111,7 @@ def inject_css() -> None:
 
 @st.cache_data(ttl=180, show_spinner=False)
 def load_market_snapshot() -> list[MarketStatusItem]:
-    try:
-        downloaded = yf.download(list(MARKET_TICKERS.values()), period="5d", progress=False, auto_adjust=False)
-        close_frame = downloaded["Close"] if "Close" in downloaded else downloaded
-        items: list[MarketStatusItem] = []
-        for label, ticker in MARKET_TICKERS.items():
-            series = close_frame[ticker].dropna()
-            if len(series) >= 2:
-                current = float(series.iloc[-1])
-                previous = float(series.iloc[-2])
-                change_pct = 0.0 if previous == 0 else (current - previous) / previous
-            elif len(series) == 1:
-                current = float(series.iloc[-1])
-                change_pct = 0.0
-            else:
-                current = 0.0
-                change_pct = 0.0
-            items.append(MarketStatusItem(label=label, value=f"{current:,.2f}", change_pct=change_pct))
-        return items
-    except Exception:
-        return [MarketStatusItem(label=label, value="--", change_pct=0.0) for label in MARKET_TICKERS]
+    return build_market_status_items(MARKET_TICKERS)
 
 
 def render_workspace(result: dict[str, Any]) -> None:
@@ -127,7 +132,9 @@ def render_workspace(result: dict[str, Any]) -> None:
     projection = get_ai_projection(dataframe)
     forecast_chart = create_forecast_chart(dataframe, predict_future_prices(dataframe))
     strategy_name = result["metadata"]["strategy_name"]
-    latest_signal = int(dataframe["signal"].iloc[-1]) if "signal" in dataframe.columns else 0
+    latest_signal = (
+        int(dataframe["signal"].iloc[-1]) if "signal" in dataframe.columns else 0
+    )
     latest_close = float(dataframe["close"].iloc[-1])
 
     render_trading_workspace(
@@ -142,7 +149,9 @@ def render_workspace(result: dict[str, Any]) -> None:
         )
     )
 
-    backtest_tab, scanner_tab, research_tab = st.tabs(["Backtest", "Scanner", "Research"])
+    backtest_tab, scanner_tab, research_tab = st.tabs(
+        ["Backtest", "Scanner", "Research"]
+    )
     with backtest_tab:
         render_backtest_workspace(
             BacktestWorkspaceView(
@@ -206,7 +215,9 @@ def main() -> None:
         render_watchlist(
             watchlist_rows,
             selected_symbol=st.session_state["selected_symbol"],
-            on_select=lambda symbol: st.session_state.__setitem__("selected_symbol", symbol),
+            on_select=lambda symbol: st.session_state.__setitem__(
+                "selected_symbol", symbol
+            ),
         )
         new_symbol = st.text_input("Add Symbol", value="", placeholder="e.g. NVDA")
         add_col, remove_col = st.columns(2)
@@ -219,7 +230,14 @@ def main() -> None:
 
     with right_col:
         toolbar_state = render_workspace_toolbar(
-            symbols=[st.session_state["selected_symbol"], *[symbol for symbol in get_watchlist() if symbol != st.session_state["selected_symbol"]]],
+            symbols=[
+                st.session_state["selected_symbol"],
+                *[
+                    symbol
+                    for symbol in get_watchlist()
+                    if symbol != st.session_state["selected_symbol"]
+                ],
+            ],
             selected_symbol=st.session_state["selected_symbol"],
             timeframes=TIMEFRAME_OPTIONS,
             selected_timeframe=st.session_state["selected_timeframe"],
@@ -288,7 +306,9 @@ def main() -> None:
             st.caption(f"Fallback attempted: {error['fallback_attempted']}")
             if error["diagnostics"]:
                 st.json(error["diagnostics"], expanded=False)
-            st.info("Next action: verify network access or refresh local CSV data under data/.")
+            st.info(
+                "Next action: verify network access or refresh local CSV data under data/."
+            )
             return
 
         if st.session_state.get("analysis_result") is None:

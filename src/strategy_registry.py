@@ -1,15 +1,22 @@
-from typing import Type, Dict, Any
-from .strategies import Strategy, RSIMACDStrategy, MACrossoverStrategy, BollingerBreakoutStrategy
+from typing import Type, Dict
+from .strategies import (
+    Strategy,
+    RSIMACDStrategy,
+    MACrossoverStrategy,
+    BollingerBreakoutStrategy,
+)
+
 
 class StrategyRegistry:
     """
-    Registry for trading strategies. Provides a central place to register and retrieve 
+    Registry for trading strategies. Provides a central place to register and retrieve
     strategies by name for the UI.
     """
+
     _registry: Dict[str, Type[Strategy]] = {
         "RSI_MACD": RSIMACDStrategy,
         "MA_CROSSOVER": MACrossoverStrategy,
-        "BOLLINGER_BREAKOUT": BollingerBreakoutStrategy
+        "BOLLINGER_BREAKOUT": BollingerBreakoutStrategy,
     }
 
     @classmethod

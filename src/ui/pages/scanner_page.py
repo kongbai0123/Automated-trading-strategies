@@ -19,4 +19,3 @@ def render_scanner_page(view: ScannerPageView) -> None:
     st.markdown("#### Scanner Commentary")
     for line in view.narrative:
         st.write(f"- {line}")
-

@@ -38,8 +38,12 @@ class PaperBrokerAdapter:
         else:
             self._open_orders[order.order_id] = filled_order
 
-        signed_quantity = fill_quantity if filled_order.side.value == "BUY" else -fill_quantity
-        self._positions[filled_order.symbol] = self._positions.get(filled_order.symbol, 0) + signed_quantity
+        signed_quantity = (
+            fill_quantity if filled_order.side.value == "BUY" else -fill_quantity
+        )
+        self._positions[filled_order.symbol] = (
+            self._positions.get(filled_order.symbol, 0) + signed_quantity
+        )
         return filled_order
 
     def get_positions(self) -> list[BrokerPosition]:
