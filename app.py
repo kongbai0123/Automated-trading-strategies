@@ -1,31 +1,29 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 import pandas as pd
 import streamlit as st
 import yfinance as yf
 
+from src.app_services.analysis_service import build_kpis, build_scanner_rows, load_analysis
+from src.app_services.error_presenter import build_controlled_error_payload
+from src.app_services.execution_service import execute_latest_signal
+from src.app_services.workspace_state import build_watchlist_rows, current_engine, current_journal, init_workspace_state
 from src.charting import create_equity_curve, create_forecast_chart, create_price_chart, create_rsi_chart
 from src.market_data import ControlledMarketDataError
 from src.predictor import get_ai_projection, predict_future_prices
-from src.scanner import analyze_symbol_detailed
-from src.storage import ensure_storage, get_watchlist, remove_from_watchlist, save_to_watchlist
+from src.storage import get_watchlist, remove_from_watchlist, save_to_watchlist
 from src.strategy_registry import StrategyRegistry
-from src.trading.engine import TradingEngine
-from src.trading.journal import InMemoryJournal
-from src.trading.models import OrderSide, SignalEvent, generate_trace_id
-from src.trading.risk import RiskConfig
 from src.ui.components.data_status import render_data_status
 from src.ui.components.market_bar import MarketStatusItem, render_market_bar
-from src.ui.components.watchlist import WatchlistRow, render_watchlist
+from src.ui.components.watchlist import render_watchlist
 from src.ui.components.workspace_toolbar import render_workspace_toolbar
 from src.ui.pages.backtest_workspace import BacktestWorkspaceView, render_backtest_workspace
 from src.ui.pages.research_page import ResearchPageView, render_research_page
 from src.ui.pages.scanner_page import ScannerPageView, render_scanner_page
 from src.ui.pages.trading_workspace import TradingWorkspaceView, render_trading_workspace
-from src.ui_pipeline import load_config, run_backtest_pipeline
+from src.ui_pipeline import load_config
 
 st.set_page_config(page_title="Professional Quant Trading Workspace", layout="wide", initial_sidebar_state="collapsed")
 
@@ -87,52 +85,6 @@ def inject_css() -> None:
     )
 
 
-def init_session_state() -> None:
-    ensure_storage()
-    defaults = {
-        "selected_symbol": DEFAULT_SYMBOL,
-        "selected_timeframe": "1d",
-        "selected_period": "2y",
-        "selected_strategy": StrategyRegistry.get_available_strategies()[0],
-        "selected_execution_mode": EXECUTION_MODES[0],
-        "analysis_result": None,
-        "analysis_error": None,
-    }
-    for key, value in defaults.items():
-        st.session_state.setdefault(key, value)
-
-    st.session_state.setdefault("paper_journal", InMemoryJournal())
-    st.session_state.setdefault(
-        "paper_engine",
-        TradingEngine.for_paper_trading(
-            risk_config=_risk_config(semi_auto=False),
-            journal=st.session_state["paper_journal"],
-            starting_cash=1_000_000.0,
-        ),
-    )
-    st.session_state.setdefault("semi_journal", InMemoryJournal())
-    st.session_state.setdefault(
-        "semi_engine",
-        TradingEngine.for_semi_auto(
-            risk_config=_risk_config(semi_auto=True),
-            journal=st.session_state["semi_journal"],
-            starting_cash=1_000_000.0,
-        ),
-    )
-
-
-def _risk_config(*, semi_auto: bool) -> RiskConfig:
-    return RiskConfig(
-        max_position_size=100,
-        max_symbol_exposure=250_000.0,
-        max_total_exposure=500_000.0,
-        max_daily_loss=100_000.0,
-        semi_auto=semi_auto,
-        cooldown_minutes=30,
-        symbol_allowlist=None,
-    )
-
-
 @st.cache_data(ttl=180, show_spinner=False)
 def load_market_snapshot() -> list[MarketStatusItem]:
     try:
@@ -157,141 +109,13 @@ def load_market_snapshot() -> list[MarketStatusItem]:
         return [MarketStatusItem(label=label, value="--", change_pct=0.0) for label in MARKET_TICKERS]
 
 
-def load_analysis(symbol: str, strategy_name: str, period: str, interval: str) -> dict[str, Any]:
-    return run_backtest_pipeline(
-        symbol=symbol,
-        strategy_name=strategy_name,
-        strategy_params={},
-        transaction_cost=DEFAULT_TRANSACTION_COST,
-        period=period,
-        interval=interval,
-    )
-
-
-def build_signal_from_analysis(result: dict[str, Any], *, symbol: str, strategy_name: str, timeframe: str) -> SignalEvent | None:
-    dataframe = result["df"]
-    if "signal" not in dataframe.columns:
-        return None
-
-    actionable = dataframe[dataframe["signal"].isin([1, -1])]
-    if actionable.empty:
-        return None
-
-    latest = actionable.iloc[-1]
-    market_time = pd.Timestamp(latest.name).to_pydatetime()
-    side = OrderSide.BUY if int(latest["signal"]) > 0 else OrderSide.SELL
-    reference_price = float(latest.get("close", 0.0))
-    created_at = datetime.now()
-    return SignalEvent(
-        signal_id=generate_trace_id("signal", strategy_name, symbol, market_time.isoformat()),
-        run_id=generate_trace_id("run", symbol, timeframe, created_at.strftime("%Y%m%d")),
-        strategy_id=strategy_name,
-        symbol=symbol,
-        timeframe=timeframe,
-        side=side,
-        signal_type="ENTRY",
-        strength=abs(float(latest["signal"])),
-        confidence=0.75,
-        market_time=market_time,
-        created_at=created_at,
-        processed_at=created_at,
-        metadata={"reference_price": reference_price},
-    )
-
-
-def _current_engine(mode: str) -> TradingEngine:
-    return st.session_state["paper_engine"] if mode == "Paper Trading" else st.session_state["semi_engine"]
-
-
-def _current_journal(mode: str) -> InMemoryJournal:
-    return st.session_state["paper_journal"] if mode == "Paper Trading" else st.session_state["semi_journal"]
-
-
-def execute_latest_signal(mode: str) -> None:
-    result = st.session_state.get("analysis_result")
-    if not result:
-        st.warning("Run analysis first.")
-        return
-
-    signal = build_signal_from_analysis(
-        result,
-        symbol=st.session_state["selected_symbol"],
-        strategy_name=st.session_state["selected_strategy"],
-        timeframe=st.session_state["selected_timeframe"],
-    )
-    if signal is None:
-        st.warning("No actionable signal found in the current dataset.")
-        return
-
-    execution_price = float(signal.metadata.get("reference_price", 0.0))
-    engine = _current_engine(mode)
-    outcome = engine.process_signal(
-        signal,
-        requested_quantity=DEFAULT_REQUESTED_QUANTITY,
-        execution_price=execution_price,
-    )
-    if outcome.order is None:
-        st.info(f"{mode}: intent stopped at {outcome.intent.status.value}.")
-    else:
-        st.success(f"{mode}: order {outcome.order.order_id} is {outcome.order.status.value}.")
-
-
-def build_watchlist_rows(current_symbol: str, dataframe: pd.DataFrame | None) -> list[WatchlistRow]:
-    watchlist_symbols = get_watchlist()
-    if current_symbol not in watchlist_symbols:
-        watchlist_symbols = [current_symbol] + watchlist_symbols
-
-    last_price = None
-    change_pct = None
-    volume = None
-    if dataframe is not None and not dataframe.empty:
-        last_price = float(dataframe["close"].iloc[-1])
-        if len(dataframe) > 1 and float(dataframe["close"].iloc[-2]) != 0:
-            change_pct = (float(dataframe["close"].iloc[-1]) - float(dataframe["close"].iloc[-2])) / float(dataframe["close"].iloc[-2])
-        volume = float(dataframe["volume"].iloc[-1]) if "volume" in dataframe.columns else None
-
-    rows: list[WatchlistRow] = []
-    for symbol in watchlist_symbols:
-        if symbol == current_symbol:
-            rows.append(WatchlistRow(symbol=symbol, last_price=last_price, change_pct=change_pct, volume=volume))
-        else:
-            rows.append(WatchlistRow(symbol=symbol))
-    return rows
-
-
-def build_kpis(result: dict[str, Any]) -> dict[str, str]:
-    kpi = result["kpi"]
-    return {
-        "Return": f"{float(kpi.get('return', 0.0)):.2%}",
-        "Win Rate": f"{float(kpi.get('win_rate', 0.0)):.2%}",
-        "Max Drawdown": f"{float(kpi.get('max_drawdown', 0.0)):.2%}",
-        "Signal": str(int(result["df"]["signal"].iloc[-1])) if "signal" in result["df"].columns else "0",
-    }
-
-
-def build_scanner_rows(result: dict[str, Any]) -> list[dict[str, object]]:
-    analysis = analyze_symbol_detailed(result["df"], symbol=st.session_state["selected_symbol"])
-    latest_close = float(result["df"]["close"].iloc[-1])
-    return [
-        {
-            "symbol": st.session_state["selected_symbol"],
-            "strategy": st.session_state["selected_strategy"],
-            "score": analysis.get("score", 0),
-            "trend": analysis.get("trend", "Unknown"),
-            "risk": analysis.get("risk", "Unknown"),
-            "last_price": latest_close,
-            "reason": analysis.get("reason", ""),
-        }
-    ]
-
-
 def render_workspace(result: dict[str, Any]) -> None:
     dataframe = result["df"]
     render_data_status(result["metadata"])
     selected_symbol = st.session_state["selected_symbol"]
     execution_mode = st.session_state["selected_execution_mode"]
-    journal = _current_journal(execution_mode)
-    engine = _current_engine(execution_mode)
+    journal = current_journal(st.session_state, execution_mode)
+    engine = current_engine(st.session_state, execution_mode)
     try:
         portfolio_state = engine.replay_portfolio(journal.read_all())
     except ValueError:
@@ -328,7 +152,11 @@ def render_workspace(result: dict[str, Any]) -> None:
             )
         )
     with scanner_tab:
-        scanner_rows = build_scanner_rows(result)
+        scanner_rows = build_scanner_rows(
+            result,
+            symbol=st.session_state["selected_symbol"],
+            strategy_name=st.session_state["selected_strategy"],
+        )
         render_scanner_page(
             ScannerPageView(
                 rows=scanner_rows,
@@ -353,7 +181,11 @@ def render_workspace(result: dict[str, Any]) -> None:
 
 def main() -> None:
     inject_css()
-    init_session_state()
+    init_workspace_state(
+        st.session_state,
+        default_symbol=DEFAULT_SYMBOL,
+        execution_modes=EXECUTION_MODES,
+    )
     render_market_bar(
         load_market_snapshot(),
         market_label="Global Market Tape",
@@ -366,7 +198,11 @@ def main() -> None:
 
     left_col, right_col = st.columns([1.0, 4.2])
     with left_col:
-        watchlist_rows = build_watchlist_rows(st.session_state["selected_symbol"], current_dataframe)
+        watchlist_rows = build_watchlist_rows(
+            watchlist_symbols=get_watchlist(),
+            current_symbol=st.session_state["selected_symbol"],
+            dataframe=current_dataframe,
+        )
         render_watchlist(
             watchlist_rows,
             selected_symbol=st.session_state["selected_symbol"],
@@ -409,23 +245,40 @@ def main() -> None:
                         strategy_name=toolbar_state.strategy_name,
                         period=toolbar_state.period,
                         interval=toolbar_state.timeframe,
+                        transaction_cost=DEFAULT_TRANSACTION_COST,
                     )
                     st.session_state["analysis_error"] = None
                 except ControlledMarketDataError as exc:
                     st.session_state["analysis_result"] = None
-                    st.session_state["analysis_error"] = {
-                        "symbol": exc.symbol,
-                        "attempted_source": exc.attempted_source,
-                        "fallback_attempted": exc.fallback_attempted,
-                        "diagnostics": exc.diagnostics,
-                        "message": str(exc),
-                    }
+                    st.session_state["analysis_error"] = build_controlled_error_payload(
+                        symbol=exc.symbol,
+                        attempted_source=exc.attempted_source,
+                        fallback_attempted=exc.fallback_attempted,
+                        diagnostics=exc.diagnostics,
+                        message=str(exc),
+                    )
         with paper_col:
             if st.button("Trigger Paper Flow", use_container_width=True):
-                execute_latest_signal("Paper Trading")
+                tone, message = execute_latest_signal(
+                    engine=current_engine(st.session_state, "Paper Trading"),
+                    result=st.session_state.get("analysis_result"),
+                    symbol=st.session_state["selected_symbol"],
+                    strategy_name=st.session_state["selected_strategy"],
+                    timeframe=st.session_state["selected_timeframe"],
+                    requested_quantity=DEFAULT_REQUESTED_QUANTITY,
+                )
+                getattr(st, tone)(f"Paper Trading: {message}")
         with semi_col:
             if st.button("Trigger Semi Auto", use_container_width=True):
-                execute_latest_signal("Semi Auto")
+                tone, message = execute_latest_signal(
+                    engine=current_engine(st.session_state, "Semi Auto"),
+                    result=st.session_state.get("analysis_result"),
+                    symbol=st.session_state["selected_symbol"],
+                    strategy_name=st.session_state["selected_strategy"],
+                    timeframe=st.session_state["selected_timeframe"],
+                    requested_quantity=DEFAULT_REQUESTED_QUANTITY,
+                )
+                getattr(st, tone)(f"Semi Auto: {message}")
 
         if st.session_state.get("analysis_error") is not None:
             error = st.session_state["analysis_error"]
