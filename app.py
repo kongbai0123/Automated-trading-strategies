@@ -8,6 +8,7 @@ import streamlit as st
 import yfinance as yf
 
 from src.charting import create_equity_curve, create_forecast_chart, create_price_chart, create_rsi_chart
+from src.market_data import ControlledMarketDataError
 from src.predictor import get_ai_projection, predict_future_prices
 from src.scanner import analyze_symbol_detailed
 from src.storage import ensure_storage, get_watchlist, remove_from_watchlist, save_to_watchlist
@@ -16,6 +17,7 @@ from src.trading.engine import TradingEngine
 from src.trading.journal import InMemoryJournal
 from src.trading.models import OrderSide, SignalEvent, generate_trace_id
 from src.trading.risk import RiskConfig
+from src.ui.components.data_status import render_data_status
 from src.ui.components.market_bar import MarketStatusItem, render_market_bar
 from src.ui.components.watchlist import WatchlistRow, render_watchlist
 from src.ui.components.workspace_toolbar import render_workspace_toolbar
@@ -94,6 +96,7 @@ def init_session_state() -> None:
         "selected_strategy": StrategyRegistry.get_available_strategies()[0],
         "selected_execution_mode": EXECUTION_MODES[0],
         "analysis_result": None,
+        "analysis_error": None,
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
@@ -284,6 +287,7 @@ def build_scanner_rows(result: dict[str, Any]) -> list[dict[str, object]]:
 
 def render_workspace(result: dict[str, Any]) -> None:
     dataframe = result["df"]
+    render_data_status(result["metadata"])
     selected_symbol = st.session_state["selected_symbol"]
     execution_mode = st.session_state["selected_execution_mode"]
     journal = _current_journal(execution_mode)
@@ -399,18 +403,40 @@ def main() -> None:
         run_col, paper_col, semi_col = st.columns([1.1, 1.2, 1.2])
         with run_col:
             if st.button("Run Analysis", use_container_width=True, type="primary"):
-                st.session_state["analysis_result"] = load_analysis(
-                    symbol=toolbar_state.symbol,
-                    strategy_name=toolbar_state.strategy_name,
-                    period=toolbar_state.period,
-                    interval=toolbar_state.timeframe,
-                )
+                try:
+                    st.session_state["analysis_result"] = load_analysis(
+                        symbol=toolbar_state.symbol,
+                        strategy_name=toolbar_state.strategy_name,
+                        period=toolbar_state.period,
+                        interval=toolbar_state.timeframe,
+                    )
+                    st.session_state["analysis_error"] = None
+                except ControlledMarketDataError as exc:
+                    st.session_state["analysis_result"] = None
+                    st.session_state["analysis_error"] = {
+                        "symbol": exc.symbol,
+                        "attempted_source": exc.attempted_source,
+                        "fallback_attempted": exc.fallback_attempted,
+                        "diagnostics": exc.diagnostics,
+                        "message": str(exc),
+                    }
         with paper_col:
             if st.button("Trigger Paper Flow", use_container_width=True):
                 execute_latest_signal("Paper Trading")
         with semi_col:
             if st.button("Trigger Semi Auto", use_container_width=True):
                 execute_latest_signal("Semi Auto")
+
+        if st.session_state.get("analysis_error") is not None:
+            error = st.session_state["analysis_error"]
+            st.error(error["message"])
+            st.caption(f"Symbol: {error['symbol']}")
+            st.caption(f"Attempted source: {error['attempted_source']}")
+            st.caption(f"Fallback attempted: {error['fallback_attempted']}")
+            if error["diagnostics"]:
+                st.json(error["diagnostics"], expanded=False)
+            st.info("Next action: verify network access or refresh local CSV data under data/.")
+            return
 
         if st.session_state.get("analysis_result") is None:
             st.info("Run analysis to load the trading workspace.")
