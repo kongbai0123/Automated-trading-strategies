@@ -19,18 +19,6 @@ def _initial_x_range(
     return [df.index[-visible_bars], df.index[-1]]
 
 
-def _range_selector_buttons() -> list[dict[str, object]]:
-    return [
-        dict(count=1, label="1D", step="day", stepmode="backward"),
-        dict(count=5, label="5D", step="day", stepmode="backward"),
-        dict(count=1, label="1M", step="month", stepmode="backward"),
-        dict(count=3, label="3M", step="month", stepmode="backward"),
-        dict(count=6, label="6M", step="month", stepmode="backward"),
-        dict(count=1, label="1Y", step="year", stepmode="backward"),
-        dict(label="All", step="all"),
-    ]
-
-
 def create_price_chart(
     df: pd.DataFrame,
     title: str = "Price Action",
@@ -61,6 +49,13 @@ def create_price_chart(
                 increasing_line_color=COLOR_UP,
                 decreasing_line_color=COLOR_DOWN,
                 name="OHLC",
+                hovertemplate=(
+                    "Time=%{x}<br>"
+                    "Open=%{open}<br>"
+                    "High=%{high}<br>"
+                    "Low=%{low}<br>"
+                    "Close=%{close}<extra></extra>"
+                ),
             )
         )
     else:
@@ -74,6 +69,13 @@ def create_price_chart(
                 increasing_line_color=COLOR_UP,
                 decreasing_line_color=COLOR_DOWN,
                 name="Candles",
+                hovertemplate=(
+                    "Time=%{x}<br>"
+                    "Open=%{open}<br>"
+                    "High=%{high}<br>"
+                    "Low=%{low}<br>"
+                    "Close=%{close}<extra></extra>"
+                ),
             )
         )
 
@@ -139,7 +141,7 @@ def create_price_chart(
         margin=dict(l=42, r=28, t=54, b=42),
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
-        hovermode="x unified",
+        hovermode="x",
         dragmode="pan",
         uirevision="price-chart",
         legend=dict(
@@ -158,13 +160,7 @@ def create_price_chart(
         spikemode="across",
         spikesnap="cursor",
         spikethickness=1,
-        rangeslider=dict(visible=True, thickness=0.06),
-        rangeselector=dict(
-            buttons=_range_selector_buttons(),
-            bgcolor="rgba(15, 23, 42, 0.85)",
-            activecolor="rgba(59, 130, 246, 0.45)",
-            font=dict(color="white", size=10),
-        ),
+        rangeslider=dict(visible=False),
         range=_initial_x_range(df, visible_bars),
     )
     fig.update_yaxes(

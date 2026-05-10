@@ -8,6 +8,7 @@ import streamlit as st
 CHART_INTERACTION_CONFIG = {
     "scrollZoom": True,
     "doubleClick": "reset+autosize",
+    "displayModeBar": False,
     "displaylogo": False,
     "responsive": True,
 }

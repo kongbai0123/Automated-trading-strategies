@@ -33,13 +33,14 @@ def test_price_chart_exposes_trading_interaction_controls() -> None:
     figure = create_price_chart(_price_frame())
 
     assert figure.layout.dragmode == "pan"
-    assert figure.layout.hovermode == "x unified"
-    assert figure.layout.xaxis.rangeslider.visible is True
+    assert figure.layout.hovermode == "x"
+    assert figure.layout.xaxis.rangeslider.visible is False
     assert figure.layout.xaxis.showspikes is True
     assert figure.layout.yaxis.showspikes is True
-    assert figure.layout.xaxis.rangeselector.buttons[0].step == "day"
+    assert figure.layout.xaxis.rangeselector.buttons == ()
 
 
 def test_chart_workspace_enables_scroll_zoom() -> None:
     assert CHART_INTERACTION_CONFIG["scrollZoom"] is True
     assert CHART_INTERACTION_CONFIG["doubleClick"] == "reset+autosize"
+    assert CHART_INTERACTION_CONFIG["displayModeBar"] is False
