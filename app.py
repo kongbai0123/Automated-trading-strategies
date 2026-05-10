@@ -18,6 +18,8 @@ from src.app_services.workspace_state import (
     current_engine,
     current_journal,
     init_workspace_state,
+    normalize_period_for_timeframe,
+    period_options_for_timeframe,
 )
 from src.charting import (
     create_equity_curve,
@@ -55,13 +57,13 @@ TIMEFRAME_LABELS = {
     "1m": "1 Minute",
     "5m": "5 Minutes",
     "15m": "15 Minutes",
+    "30m": "30 Minutes",
     "60m": "1 Hour",
     "1d": "1 Day",
     "1wk": "1 Week",
     "1mo": "1 Month",
 }
 TIMEFRAME_OPTIONS = list(TIMEFRAME_LABELS.keys())
-PERIOD_OPTIONS = ["1mo", "3mo", "6mo", "1y", "2y", "5y"]
 EXECUTION_MODES = ["Paper Trading", "Semi Auto"]
 MARKET_TICKERS = {
     "TAIEX": "^TWII",
@@ -229,6 +231,13 @@ def main() -> None:
                 remove_from_watchlist(st.session_state["selected_symbol"])
 
     with right_col:
+        period_options = period_options_for_timeframe(
+            st.session_state["selected_timeframe"]
+        )
+        st.session_state["selected_period"] = normalize_period_for_timeframe(
+            st.session_state["selected_period"],
+            st.session_state["selected_timeframe"],
+        )
         toolbar_state = render_workspace_toolbar(
             symbols=[
                 st.session_state["selected_symbol"],
@@ -241,7 +250,7 @@ def main() -> None:
             selected_symbol=st.session_state["selected_symbol"],
             timeframes=TIMEFRAME_OPTIONS,
             selected_timeframe=st.session_state["selected_timeframe"],
-            periods=PERIOD_OPTIONS,
+            periods=period_options,
             selected_period=st.session_state["selected_period"],
             strategies=StrategyRegistry.get_available_strategies(),
             selected_strategy=st.session_state["selected_strategy"],

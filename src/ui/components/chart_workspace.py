@@ -5,6 +5,13 @@ from typing import Mapping
 import plotly.graph_objects as go
 import streamlit as st
 
+CHART_INTERACTION_CONFIG = {
+    "scrollZoom": True,
+    "doubleClick": "reset+autosize",
+    "displaylogo": False,
+    "responsive": True,
+}
+
 
 def render_kpi_strip(kpis: Mapping[str, float | str]) -> None:
     cols = st.columns(max(1, len(kpis)))
@@ -23,6 +30,10 @@ def render_chart_workspace(
     st.markdown(f"### {title}")
     if summary:
         st.caption(summary)
-    st.plotly_chart(price_chart, use_container_width=True)
+    st.plotly_chart(
+        price_chart, use_container_width=True, config=CHART_INTERACTION_CONFIG
+    )
     if secondary_chart is not None:
-        st.plotly_chart(secondary_chart, use_container_width=True)
+        st.plotly_chart(
+            secondary_chart, use_container_width=True, config=CHART_INTERACTION_CONFIG
+        )
