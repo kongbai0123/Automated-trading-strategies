@@ -1,33 +1,140 @@
-# 專業量化交易分析與預測系統 (Trading Analysis Pro)
+# Professional Quant Trading Workspace
 
-## 1. 專案簡介 (Purpose)
-本系統為一套基於 Python 的自動化技術分析、AI 價格預測與策略回測平台。旨在協助量化研究者透過清晰的工程架構與機器學習模型，快速評估交易策略並預測未來市場趨勢。
+This repository is a Python-based trading research and paper-trading workspace.
+It is being refactored from an early technical-analysis prototype into a more
+maintainable quant platform with explicit market data, strategy, risk, order
+lifecycle, portfolio, journal, UI, and MCP boundaries.
 
-## 2. 核心功能 (Key Features)
-*   **AI 價格預測**：集成 Scikit-learn 線性回歸模型，推算未來 10 個交易日的價格走勢與信心區間。
-*   **智慧投資建議**：綜合 RSI、MACD、移動平均線等指標，自動產生「強力買入/賣出」之系統決策建議。
-*   **專業視覺化介面**：基於 Streamlit 的繁體中文儀表板，即時呈現 K 線圖、資產曲線與預測趨勢。
-*   **向量化回測引擎**：高效能計算歷史績效，支援自定義交易成本與滑價模型。
-*   **一鍵式管理**：提供 `.bat` 啟動檔，自動處理環境依賴與資料更新。
+The current system is not a live brokerage execution platform and should not be
+treated as investment advice. Predictor output is scenario projection and
+risk-aware research support, not a buy/sell instruction.
 
-## 3. 系統架構 (Architecture)
-*   **Data Layer**：負責資料抓取 (Yahoo Finance) 與清洗。
-*   **Indicator Layer**：提供無狀態的技術指標運算 (SMA, RSI, MACD, ATR)。
-*   **Predictor Layer** [NEW]：利用機器學習模型進行趨勢推演與投資建議評估。
-*   **Strategy Layer**：定義可插拔的交易邏輯。
-*   **Backtest Engine**：計算歷史收益與風險指標 (Sharpe, MDD)。
+## Current Scope
 
-## 4. 快速啟動 (Quick Start)
-1.  **啟動系統**：雙擊 `Run_Dashboard.bat`。
-2.  **更新資料**：雙擊 `Update_Data.bat` 並輸入股票代號（如 `2330.TW`）。
-3.  **查看報告**：於網頁介面選擇資料後，點擊「開始分析與回測」。
+- Market data loading with live-first Yahoo Finance fallback handling
+- Technical indicators: SMA, RSI, MACD, ATR
+- Baseline strategies: RSI/MACD, moving-average crossover, Bollinger breakout
+- Backtest pipeline with KPI calculation
+- Paper trading core with signal, intent, risk, order, fill, portfolio, and journal events
+- Trading workspace UI built with Streamlit and Plotly
+- Trade lifecycle panel for OMS-style visibility
+- MCP server adapter for agent access to read, analysis, journal, portfolio, and paper-safe tools
+- Predictor domain layer with `IPredictor`, `HeuristicPredictor`, `ProjectionResult`, and `PredictorConfig`
 
-## 5. 開發與測試
-*   使用 `pytest tests/` 執行單元測試。
-*   核心邏輯位於 `src/` 目錄下，採模組化設計易於擴充。
+## Architecture
 
-## 6. AI唯讀區
-** 此為提供AI最佳化方向 ** 
-1.  optimization/
----
-*注意：本系統僅供研究參考，不構成任何實際投資建議。投資有風險，入市需謹慎。*
+```text
+src/
+├─ app_services/      Application orchestration for UI workflows
+├─ config/            Versioned configuration models
+├─ domain/            Pure domain contracts and value objects
+├─ mcp_server/        MCP-compatible HTTP JSON-RPC adapter
+├─ selection/         Regime, scoring, ranking, sizing, intent factory
+├─ trading/           Paper trading core, risk, portfolio, orders, journal
+├─ ui/                Streamlit components and workspace pages
+├─ market_data.py     Live-first market data service with fallback metadata
+├─ ui_pipeline.py     Analysis pipeline boundary
+└─ predictor.py       Legacy compatibility predictor facade
+```
+
+The target dependency direction is:
+
+```text
+UI / MCP / App Services
+-> Domain interfaces
+-> Trading / Selection / Market data services
+-> Infrastructure adapters
+```
+
+## Predictor Layer
+
+The new predictor layer is intentionally conservative:
+
+- `IPredictor` defines the domain contract.
+- `HeuristicPredictor` implements deterministic ATR/SMA/MACD scenario projection.
+- `PredictorConfig` centralizes thresholds, weights, and validation settings.
+- `ProjectionResult` is an immutable output value object.
+
+This layer is for research and decision support only. Future ML predictors should
+implement the same `IPredictor` interface instead of changing UI or application
+services directly.
+
+## MCP Server
+
+Run locally:
+
+```powershell
+py -m src.mcp_server.server --host 127.0.0.1 --port 8765
+```
+
+Endpoint:
+
+```text
+http://127.0.0.1:8765/mcp
+```
+
+Public HTTPS requires deployment behind TLS:
+
+```text
+https://<your-domain>/mcp
+```
+
+MCP-1 exposes read, analysis, journal, portfolio, and paper-safe tools. It does
+not expose live broker order placement.
+
+## Quick Start
+
+Install dependencies:
+
+```powershell
+py -m pip install -r requirements.txt
+```
+
+Run tests:
+
+```powershell
+py -m pytest -v
+```
+
+Run the Streamlit workspace:
+
+```powershell
+py -m streamlit run app.py
+```
+
+## Development Checks
+
+Format and lint:
+
+```powershell
+py -m black app.py src tests
+py -m ruff check app.py src tests --fix --no-cache
+```
+
+## Product Positioning
+
+This project should be described as:
+
+- Trading decision workspace
+- Scenario projection
+- Risk-aware decision support
+- Paper trading and order lifecycle research
+- Quant platform architecture prototype
+
+Avoid describing the system as:
+
+- Guaranteed AI price prediction
+- Strong buy/sell recommendation engine
+- Live trading automation
+- Production brokerage execution system
+
+## Roadmap
+
+Near-term priorities:
+
+- Connect legacy `src/predictor.py` to the new domain predictor layer through a compatibility adapter
+- Add experiment metadata: `run_id`, config snapshot, dataset hash, data source, and timestamp
+- Continue thinning `app.py` into application services
+- Expand strategy metadata and registry validation
+- Keep live broker execution out of scope until risk, audit, auth, and broker reconciliation are formalized
+
