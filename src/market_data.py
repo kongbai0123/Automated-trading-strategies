@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from sqlite3 import OperationalError
 from time import perf_counter
-from typing import Callable
 
 import pandas as pd
 import yfinance as yf
@@ -249,9 +249,7 @@ class MarketDataService:
             diagnostics["live_error"] = str(live_exc)
 
         try:
-            local_result = self._local_provider.fetch(
-                symbol, period=period, interval=interval
-            )
+            local_result = self._local_provider.fetch(symbol, period=period, interval=interval)
             merged_diagnostics = dict(local_result.diagnostics)
             merged_diagnostics.update(diagnostics)
             return MarketDataResult(

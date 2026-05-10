@@ -1,11 +1,12 @@
-import pytest
-import pandas as pd
-import sys
 import os
+import sys
+
+import pandas as pd
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
-from backtest import BacktestEngine
 from analytics import calculate_kpi
+from backtest import BacktestEngine
 
 
 def test_backtest_engine_t_plus_1():
@@ -38,9 +39,7 @@ def test_backtest_engine_t_plus_1():
 
 
 def test_calculate_kpi():
-    df = pd.DataFrame(
-        {"equity": [1.0, 1.1, 0.9, 1.5], "strategy_returns": [0.0, 0.1, -0.18, 0.66]}
-    )
+    df = pd.DataFrame({"equity": [1.0, 1.1, 0.9, 1.5], "strategy_returns": [0.0, 0.1, -0.18, 0.66]})
 
     kpi = calculate_kpi(df)
     assert kpi["total_return"] == 0.5

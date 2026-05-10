@@ -97,9 +97,7 @@ def test_risk_rejects_gross_exposure_breach():
         portfolio=PortfolioState(
             cash=1_000_000.0,
             positions={
-                "2330.TW": PositionState(
-                    symbol="2330.TW", quantity=490, average_price=100.0
-                ),
+                "2330.TW": PositionState(symbol="2330.TW", quantity=490, average_price=100.0),
             },
             realized_pnl=0.0,
             unrealized_pnl=0.0,

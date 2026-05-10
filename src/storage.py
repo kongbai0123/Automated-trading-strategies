@@ -1,6 +1,7 @@
+import datetime
 import json
 import os
-import datetime
+
 import pandas as pd
 
 STORAGE_DIR = "configs/user_data"
@@ -14,15 +15,13 @@ def ensure_storage():
         with open(WATCHLIST_FILE, "w") as f:
             json.dump([], f)
     if not os.path.exists(HISTORY_FILE):
-        df = pd.DataFrame(
-            columns=["timestamp", "symbol", "interval", "score", "sentiment"]
-        )
+        df = pd.DataFrame(columns=["timestamp", "symbol", "interval", "score", "sentiment"])
         df.to_csv(HISTORY_FILE, index=False)
 
 
 def get_watchlist():
     ensure_storage()
-    with open(WATCHLIST_FILE, "r") as f:
+    with open(WATCHLIST_FILE) as f:
         return json.load(f)
 
 

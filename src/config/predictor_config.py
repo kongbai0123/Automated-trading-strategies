@@ -33,13 +33,11 @@ class PredictorConfig(BaseModel):
     low_risk_percentile: float = Field(default=30.0, ge=0.0, le=100.0)
 
     @model_validator(mode="after")
-    def validate_threshold_order(self) -> "PredictorConfig":
+    def validate_threshold_order(self) -> PredictorConfig:
         if self.bearish_threshold >= self.bullish_threshold:
             raise ValueError("bearish_threshold must be lower than bullish_threshold")
         if self.low_risk_percentile >= self.high_risk_percentile:
-            raise ValueError(
-                "low_risk_percentile must be lower than high_risk_percentile"
-            )
+            raise ValueError("low_risk_percentile must be lower than high_risk_percentile")
         if self.momentum_lookback >= self.min_data_length:
             raise ValueError("momentum_lookback must be lower than min_data_length")
         return self

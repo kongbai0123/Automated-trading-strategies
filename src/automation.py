@@ -1,8 +1,10 @@
-import os
-import pandas as pd
 import datetime
-from .ui_pipeline import run_backtest_pipeline
+import os
+
+import pandas as pd
+
 from .scanner import analyze_symbol_detailed
+from .ui_pipeline import run_backtest_pipeline
 
 
 def generate_daily_report(symbols: list, strategy_name: str, interval: str = "1d"):

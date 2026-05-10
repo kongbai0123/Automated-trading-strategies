@@ -1,140 +1,76 @@
 # Professional Quant Trading Workspace
 
-This repository is a Python-based trading research and paper-trading workspace.
-It is being refactored from an early technical-analysis prototype into a more
-maintainable quant platform with explicit market data, strategy, risk, order
-lifecycle, portfolio, journal, UI, and MCP boundaries.
+This repository is a Python-based **Professional Quant Trading Workspace**. 
+It has evolved from a simple technical-analysis prototype into a structured, maintainable quant platform with explicit boundaries for market data, strategy, risk, order lifecycle, portfolio management, and UI.
 
-The current system is not a live brokerage execution platform and should not be
-treated as investment advice. Predictor output is scenario projection and
-risk-aware research support, not a buy/sell instruction.
+## Core Capabilities
 
-## Current Scope
+- **Paper Trading Core**: A complete execution simulation environment mapping `Signal → Intent → Risk → Order → Fill → Portfolio`.
+- **Live-first Market Data with Fallback**: Resilient data fetching with built-in metadata tracking (LIVE, DELAYED, LOCAL_CACHE, STALE) to ensure system reliability.
+- **Selection / Ranking Flow**: Filtering and ranking mechanisms to upgrade raw signals into actionable trade intents based on regime and setup scoring.
+- **Research / Scenario Projection**: Research-driven scenario projection and risk-aware decision support (AI Projection), decoupled from strict buy/sell recommendations.
+- **OMS-style UI**: A trading lifecycle panel providing visibility into Open Orders, Recent Fills, Position snapshots, and Journal events.
 
-- Market data loading with live-first Yahoo Finance fallback handling
-- Technical indicators: SMA, RSI, MACD, ATR
-- Baseline strategies: RSI/MACD, moving-average crossover, Bollinger breakout
-- Backtest pipeline with KPI calculation
-- Paper trading core with signal, intent, risk, order, fill, portfolio, and journal events
-- Trading workspace UI built with Streamlit and Plotly
-- Trade lifecycle panel for OMS-style visibility
-- MCP server adapter for agent access to read, analysis, journal, portfolio, and paper-safe tools
-- Predictor domain layer with `IPredictor`, `HeuristicPredictor`, `ProjectionResult`, and `PredictorConfig`
+---
 
-## Architecture
+## Architecture Blueprint
+
+The system follows a layered, interface-driven design (SRP & SoC):
 
 ```text
 src/
-├─ app_services/      Application orchestration for UI workflows
-├─ config/            Versioned configuration models
-├─ domain/            Pure domain contracts and value objects
-├─ mcp_server/        MCP-compatible HTTP JSON-RPC adapter
+├─ app_services/      Thin application orchestration & session state management
+├─ config/            Centralized and versioned configuration
+├─ domain/            Pure domain contracts (e.g., IPredictor)
+├─ mcp_server/        MCP-compatible HTTP JSON-RPC adapter for agent integration
+├─ market_data/       Live/Local providers, caching backend, and data status normalization
 ├─ selection/         Regime, scoring, ranking, sizing, intent factory
-├─ trading/           Paper trading core, risk, portfolio, orders, journal
-├─ ui/                Streamlit components and workspace pages
-├─ market_data.py     Live-first market data service with fallback metadata
-├─ ui_pipeline.py     Analysis pipeline boundary
-└─ predictor.py       Legacy compatibility predictor facade
+├─ trading/           Paper trading core (RiskManager, Executor, Portfolio, Journal)
+├─ ui/                Streamlit components and OMS-style workspace pages
+└─ tests/             Unit and integration tests for CI pipelines
 ```
 
-The target dependency direction is:
+The target dependency direction is strictly:
+`UI / MCP / App Services -> Domain Interfaces -> Trading / Selection / Market Data Services -> Infrastructure Adapters`
 
-```text
-UI / MCP / App Services
--> Domain interfaces
--> Trading / Selection / Market data services
--> Infrastructure adapters
-```
+## Project Tooling & CI
 
-## Predictor Layer
+We use modern Python tooling to ensure repository hygiene and maintainability:
+- **Formatting**: `black`
+- **Linting**: `ruff`
+- **Testing**: `pytest`
 
-The new predictor layer is intentionally conservative:
-
-- `IPredictor` defines the domain contract.
-- `HeuristicPredictor` implements deterministic ATR/SMA/MACD scenario projection.
-- `PredictorConfig` centralizes thresholds, weights, and validation settings.
-- `ProjectionResult` is an immutable output value object.
-
-This layer is for research and decision support only. Future ML predictors should
-implement the same `IPredictor` interface instead of changing UI or application
-services directly.
-
-## MCP Server
-
-Run locally:
-
-```powershell
-py -m src.mcp_server.server --host 127.0.0.1 --port 8765
-```
-
-Endpoint:
-
-```text
-http://127.0.0.1:8765/mcp
-```
-
-Public HTTPS requires deployment behind TLS:
-
-```text
-https://<your-domain>/mcp
-```
-
-MCP-1 exposes read, analysis, journal, portfolio, and paper-safe tools. It does
-not expose live broker order placement.
+A `pyproject.toml` is included to standardize these tools across environments, and a GitHub Actions workflow enforces quality on push.
 
 ## Quick Start
 
-Install dependencies:
+### 1. Install Dependencies
 
 ```powershell
 py -m pip install -r requirements.txt
 ```
 
-Run tests:
+### 2. Verify System Integrity
 
 ```powershell
 py -m pytest -v
 ```
 
-Run the Streamlit workspace:
+### 3. Launch the Trading Workspace
 
 ```powershell
 py -m streamlit run app.py
 ```
 
-## Development Checks
-
-Format and lint:
-
-```powershell
-py -m black app.py src tests
-py -m ruff check app.py src tests --fix --no-cache
-```
-
 ## Product Positioning
 
-This project should be described as:
+This platform is intentionally positioned as a:
+- **Trading Workspace**: For research, signal generation, and order lifecycle management.
+- **Risk-Aware Decision Support**: Focusing on exposure limits and position sizing.
+- **Paper Trading Engine**: A safe environment to validate quant models before live execution.
 
-- Trading decision workspace
-- Scenario projection
-- Risk-aware decision support
-- Paper trading and order lifecycle research
-- Quant platform architecture prototype
+**Disclaimer**: This system is *not* a guaranteed AI price prediction engine, *not* a black-box buy/sell recommendation tool, and *not* currently wired to a production brokerage for live automated trading. Live execution is out of scope until risk, audit, and reconciliation layers are fully formalized.
 
-Avoid describing the system as:
+---
 
-- Guaranteed AI price prediction
-- Strong buy/sell recommendation engine
-- Live trading automation
-- Production brokerage execution system
-
-## Roadmap
-
-Near-term priorities:
-
-- Connect legacy `src/predictor.py` to the new domain predictor layer through a compatibility adapter
-- Add experiment metadata: `run_id`, config snapshot, dataset hash, data source, and timestamp
-- Continue thinning `app.py` into application services
-- Expand strategy metadata and registry validation
-- Keep live broker execution out of scope until risk, audit, auth, and broker reconciliation are formalized
-
+*This README was updated to reflect the transition into a commercial-grade quantitative trading platform architecture.*

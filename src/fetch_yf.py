@@ -1,6 +1,7 @@
 import argparse
-import yfinance as yf
 import os
+
+import yfinance as yf
 
 
 def fetch_data(symbol: str, period: str = "5y", interval: str = "1d") -> None:
@@ -23,9 +24,7 @@ def fetch_data(symbol: str, period: str = "5y", interval: str = "1d") -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Fetch historical data from Yahoo Finance."
-    )
+    parser = argparse.ArgumentParser(description="Fetch historical data from Yahoo Finance.")
     parser.add_argument(
         "--symbol", type=str, required=True, help="Stock symbol (e.g., 2330.TW or AAPL)"
     )

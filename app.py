@@ -136,9 +136,7 @@ def render_workspace(result: dict[str, Any]) -> None:
     projection = get_ai_projection(dataframe)
     forecast_chart = create_forecast_chart(dataframe, predict_future_prices(dataframe))
     strategy_name = result["metadata"]["strategy_name"]
-    latest_signal = (
-        int(dataframe["signal"].iloc[-1]) if "signal" in dataframe.columns else 0
-    )
+    latest_signal = int(dataframe["signal"].iloc[-1]) if "signal" in dataframe.columns else 0
     latest_close = float(dataframe["close"].iloc[-1])
 
     render_trading_workspace(
@@ -153,9 +151,7 @@ def render_workspace(result: dict[str, Any]) -> None:
         )
     )
 
-    backtest_tab, scanner_tab, research_tab = st.tabs(
-        ["Backtest", "Scanner", "Research"]
-    )
+    backtest_tab, scanner_tab, research_tab = st.tabs(["Backtest", "Scanner", "Research"])
     with backtest_tab:
         render_backtest_workspace(
             BacktestWorkspaceView(
@@ -219,9 +215,7 @@ def main() -> None:
         render_watchlist(
             watchlist_rows,
             selected_symbol=st.session_state["selected_symbol"],
-            on_select=lambda symbol: st.session_state.__setitem__(
-                "selected_symbol", symbol
-            ),
+            on_select=lambda symbol: st.session_state.__setitem__("selected_symbol", symbol),
         )
         new_symbol = st.text_input("Add Symbol", value="", placeholder="e.g. NVDA")
         add_col, remove_col = st.columns(2)
@@ -233,9 +227,7 @@ def main() -> None:
                 remove_from_watchlist(st.session_state["selected_symbol"])
 
     with right_col:
-        period_options = period_options_for_timeframe(
-            st.session_state["selected_timeframe"]
-        )
+        period_options = period_options_for_timeframe(st.session_state["selected_timeframe"])
         st.session_state["selected_period"] = normalize_period_for_timeframe(
             st.session_state["selected_period"],
             st.session_state["selected_timeframe"],
@@ -317,9 +309,7 @@ def main() -> None:
             st.caption(f"Fallback attempted: {error['fallback_attempted']}")
             if error["diagnostics"]:
                 st.json(error["diagnostics"], expanded=False)
-            st.info(
-                "Next action: verify network access or refresh local CSV data under data/."
-            )
+            st.info("Next action: verify network access or refresh local CSV data under data/.")
             return
 
         if st.session_state.get("analysis_result") is None:

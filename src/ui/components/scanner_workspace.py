@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 import pandas as pd
 import streamlit as st

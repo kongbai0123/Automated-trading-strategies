@@ -31,9 +31,7 @@ def build_kpis(result: dict[str, Any]) -> dict[str, str]:
         "Win Rate": f"{float(kpi.get('win_rate', 0.0)):.2%}",
         "Max Drawdown": f"{float(kpi.get('max_drawdown', 0.0)):.2%}",
         "Signal": (
-            str(int(result["df"]["signal"].iloc[-1]))
-            if "signal" in result["df"].columns
-            else "0"
+            str(int(result["df"]["signal"].iloc[-1])) if "signal" in result["df"].columns else "0"
         ),
     }
 

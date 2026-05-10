@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 import pandas as pd
 import streamlit as st
@@ -234,9 +234,7 @@ def render_trade_lifecycle_panel(snapshot: LifecycleSnapshot) -> None:
         "".join(
             [
                 _compact_kv("Status", risk.get("status")),
-                _compact_kv(
-                    "Reject Reasons", ", ".join(risk.get("reject_reasons", []))
-                ),
+                _compact_kv("Reject Reasons", ", ".join(risk.get("reject_reasons", []))),
                 _compact_kv("Warnings", ", ".join(risk.get("warning_reasons", []))),
             ]
         ),
@@ -277,6 +275,4 @@ def render_trade_lifecycle_panel(snapshot: LifecycleSnapshot) -> None:
         unsafe_allow_html=True,
     )
     st.markdown("**Event Timeline**")
-    st.dataframe(
-        pd.DataFrame(snapshot.timeline_rows), use_container_width=True, hide_index=True
-    )
+    st.dataframe(pd.DataFrame(snapshot.timeline_rows), use_container_width=True, hide_index=True)

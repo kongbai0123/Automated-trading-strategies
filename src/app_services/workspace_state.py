@@ -65,17 +65,13 @@ def init_workspace_state(
 
 def current_engine(session_state: Any, mode: str) -> TradingEngine:
     return (
-        session_state["paper_engine"]
-        if mode == "Paper Trading"
-        else session_state["semi_engine"]
+        session_state["paper_engine"] if mode == "Paper Trading" else session_state["semi_engine"]
     )
 
 
 def current_journal(session_state: Any, mode: str) -> InMemoryJournal:
     return (
-        session_state["paper_journal"]
-        if mode == "Paper Trading"
-        else session_state["semi_journal"]
+        session_state["paper_journal"] if mode == "Paper Trading" else session_state["semi_journal"]
     )
 
 
@@ -96,14 +92,8 @@ def build_watchlist_rows(
         last_price = float(dataframe["close"].iloc[-1])
         if len(dataframe) > 1 and float(dataframe["close"].iloc[-2]) != 0:
             previous_close = float(dataframe["close"].iloc[-2])
-            change_pct = (
-                float(dataframe["close"].iloc[-1]) - previous_close
-            ) / previous_close
-        volume = (
-            float(dataframe["volume"].iloc[-1])
-            if "volume" in dataframe.columns
-            else None
-        )
+            change_pct = (float(dataframe["close"].iloc[-1]) - previous_close) / previous_close
+        volume = float(dataframe["volume"].iloc[-1]) if "volume" in dataframe.columns else None
 
     rows: list[WatchlistRow] = []
     for symbol in effective_symbols:

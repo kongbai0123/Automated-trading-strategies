@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 def calculate_trend_score(df: pd.DataFrame) -> tuple:
@@ -33,9 +33,7 @@ def calculate_trend_score(df: pd.DataFrame) -> tuple:
             reasons.append("MACD 動能轉弱或進入負向區")
 
     # 3. 趨勢延續性 (最近 10 天方向)
-    recent_change = (
-        (df["close"].iloc[-1] / df["close"].iloc[-10]) - 1 if len(df) >= 10 else 0
-    )
+    recent_change = (df["close"].iloc[-1] / df["close"].iloc[-10]) - 1 if len(df) >= 10 else 0
     if recent_change > 0.03:
         score += 10
         reasons.append("短期趨勢向上延續中")

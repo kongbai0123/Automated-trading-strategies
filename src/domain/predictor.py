@@ -78,21 +78,15 @@ class HeuristicPredictor:
                 f"Predictor input requires at least {self._config.min_data_length} rows."
             )
         missing = [
-            column
-            for column in self._config.required_columns
-            if column not in dataframe.columns
+            column for column in self._config.required_columns if column not in dataframe.columns
         ]
         if missing:
             raise ValueError(f"Predictor input missing required columns: {missing}")
-        numeric_values = dataframe.loc[:, self._config.required_columns].to_numpy(
-            dtype=float
-        )
+        numeric_values = dataframe.loc[:, self._config.required_columns].to_numpy(dtype=float)
         if not np.isfinite(numeric_values).all():
             raise ValueError("Predictor input values must be finite.")
 
-    def _calculate_trend_score(
-        self, dataframe: pd.DataFrame
-    ) -> tuple[float, list[str]]:
+    def _calculate_trend_score(self, dataframe: pd.DataFrame) -> tuple[float, list[str]]:
         latest = dataframe.iloc[-1]
         score = self._config.base_trend_score
         reasons: list[str] = []

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 import plotly.graph_objects as go
 import streamlit as st
@@ -31,10 +31,6 @@ def render_chart_workspace(
     st.markdown(f"### {title}")
     if summary:
         st.caption(summary)
-    st.plotly_chart(
-        price_chart, use_container_width=True, config=CHART_INTERACTION_CONFIG
-    )
+    st.plotly_chart(price_chart, use_container_width=True, config=CHART_INTERACTION_CONFIG)
     if secondary_chart is not None:
-        st.plotly_chart(
-            secondary_chart, use_container_width=True, config=CHART_INTERACTION_CONFIG
-        )
+        st.plotly_chart(secondary_chart, use_container_width=True, config=CHART_INTERACTION_CONFIG)

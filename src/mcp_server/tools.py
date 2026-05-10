@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict
-from typing import Any, Callable
+from typing import Any
 
 from src.app_services.analysis_service import load_analysis
 from src.app_services.execution_service import (
@@ -168,9 +169,7 @@ class MCPToolService:
         }
 
     @staticmethod
-    def _schema(
-        properties: dict[str, Any], *, required: list[str] | None = None
-    ) -> dict[str, Any]:
+    def _schema(properties: dict[str, Any], *, required: list[str] | None = None) -> dict[str, Any]:
         return {
             "type": "object",
             "properties": properties,
@@ -186,9 +185,7 @@ class MCPToolService:
         timeframe = str(arguments.get("timeframe", "1d"))
         period = str(arguments.get("period", "1mo"))
         try:
-            market_result = self._market_data_fetcher(
-                symbol, period=period, interval=timeframe
-            )
+            market_result = self._market_data_fetcher(symbol, period=period, interval=timeframe)
         except ControlledMarketDataError as exc:
             return {
                 "ok": False,

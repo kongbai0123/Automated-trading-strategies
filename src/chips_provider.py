@@ -1,6 +1,7 @@
+import datetime
+
 import pandas as pd
 import requests
-import datetime
 
 
 def fetch_tw_institutional_data(date_str: str) -> pd.DataFrame:

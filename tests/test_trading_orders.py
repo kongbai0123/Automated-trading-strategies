@@ -49,8 +49,6 @@ def test_order_rejects_overfill():
 def test_next_bar_execution_policy():
     policy = NextBarExecutionPolicy()
 
-    executable_at = policy.next_market_time(
-        datetime(2026, 5, 7, 9, 0, 0), timeframe="1d"
-    )
+    executable_at = policy.next_market_time(datetime(2026, 5, 7, 9, 0, 0), timeframe="1d")
 
     assert executable_at == datetime(2026, 5, 8, 9, 0, 0)

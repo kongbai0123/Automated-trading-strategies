@@ -1,9 +1,10 @@
-import pandas as pd
-import sys
 import os
+import sys
+
+import pandas as pd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
-from strategies import RSIMACDStrategy, MACrossoverStrategy
+from strategies import MACrossoverStrategy, RSIMACDStrategy
 
 
 def test_rsi_macd_strategy():
@@ -27,11 +28,7 @@ def test_ma_crossover_strategy():
     signals = strategy.generate_signals(df)
 
     assert signals[0] == 0  # Initial state
-    assert (
-        signals[1] == 1
-    )  # Short(12) crosses above Long(11) from Short(10) <= Long(11) -> Buy
+    assert signals[1] == 1  # Short(12) crosses above Long(11) from Short(10) <= Long(11) -> Buy
     assert signals[2] == 0  # Short(14) > Long(11) but no cross
-    assert (
-        signals[3] == -1
-    )  # Short(13) crosses below Long(14) from Short(14) >= Long(11) -> Sell
+    assert signals[3] == -1  # Short(13) crosses below Long(14) from Short(14) >= Long(11) -> Sell
     assert signals[4] == 0  # Continued down trend

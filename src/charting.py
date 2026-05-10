@@ -11,9 +11,7 @@ COLOR_GRID = "rgba(255, 255, 255, 0.05)"
 DEFAULT_VISIBLE_BARS = 180
 
 
-def _initial_x_range(
-    df: pd.DataFrame, visible_bars: int | None
-) -> list[pd.Timestamp] | None:
+def _initial_x_range(df: pd.DataFrame, visible_bars: int | None) -> list[pd.Timestamp] | None:
     if visible_bars is None or df.empty or len(df.index) <= visible_bars:
         return None
     return [df.index[-visible_bars], df.index[-1]]
@@ -228,9 +226,7 @@ def create_forecast_chart(df: pd.DataFrame, forecast_df: pd.DataFrame) -> go.Fig
         fig.add_trace(
             go.Scatter(
                 x=pd.concat([forecast_df["date"], forecast_df["date"][::-1]]),
-                y=pd.concat(
-                    [forecast_df["upper_bound"], forecast_df["lower_bound"][::-1]]
-                ),
+                y=pd.concat([forecast_df["upper_bound"], forecast_df["lower_bound"][::-1]]),
                 fill="toself",
                 fillcolor="rgba(251, 191, 36, 0.1)",
                 line=dict(color="rgba(251, 191, 36, 0)"),
@@ -254,9 +250,7 @@ def create_forecast_chart(df: pd.DataFrame, forecast_df: pd.DataFrame) -> go.Fig
     return fig
 
 
-def create_rsi_chart(
-    df: pd.DataFrame, overbought: int = 70, oversold: int = 30
-) -> go.Figure:
+def create_rsi_chart(df: pd.DataFrame, overbought: int = 70, oversold: int = 30) -> go.Figure:
     fig = go.Figure()
     if "rsi_14" not in df.columns:
         return fig

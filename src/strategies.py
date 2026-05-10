@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 import pandas as pd
 
 
@@ -21,9 +22,7 @@ class RSIMACDStrategy(Strategy):
     Sell: RSI > 70 and MACD Histogram < 0
     """
 
-    def __init__(
-        self, rsi_col="rsi_14", macd_hist_col="macd_hist", overbought=70, oversold=30
-    ):
+    def __init__(self, rsi_col="rsi_14", macd_hist_col="macd_hist", overbought=70, oversold=30):
         self.rsi_col = rsi_col
         self.macd_hist_col = macd_hist_col
         self.overbought = overbought
@@ -31,9 +30,7 @@ class RSIMACDStrategy(Strategy):
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         if self.rsi_col not in df.columns or self.macd_hist_col not in df.columns:
-            raise ValueError(
-                f"Required columns missing: {self.rsi_col}, {self.macd_hist_col}"
-            )
+            raise ValueError(f"Required columns missing: {self.rsi_col}, {self.macd_hist_col}")
 
         signals = pd.Series(0, index=df.index)
 
@@ -59,9 +56,7 @@ class MACrossoverStrategy(Strategy):
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         if self.short_col not in df.columns or self.long_col not in df.columns:
-            raise ValueError(
-                f"Required columns missing: {self.short_col}, {self.long_col}"
-            )
+            raise ValueError(f"Required columns missing: {self.short_col}, {self.long_col}")
 
         signals = pd.Series(0, index=df.index)
 

@@ -16,9 +16,7 @@ class PortfolioEngine:
         cash = portfolio.cash
 
         if fill.side is OrderSide.BUY:
-            total_cost = (
-                (fill.fill_quantity * fill.fill_price) + fill.commission + fill.slippage
-            )
+            total_cost = (fill.fill_quantity * fill.fill_price) + fill.commission + fill.slippage
             next_quantity = current.quantity + fill.fill_quantity
             next_average = (
                 (
@@ -36,13 +34,9 @@ class PortfolioEngine:
         else:
             if fill.fill_quantity > current.quantity:
                 raise ValueError("Sell fill exceeds current position quantity")
-            proceeds = (
-                (fill.fill_quantity * fill.fill_price) - fill.commission - fill.slippage
-            )
+            proceeds = (fill.fill_quantity * fill.fill_price) - fill.commission - fill.slippage
             cash += proceeds
-            realized_pnl += (
-                fill.fill_price - current.average_price
-            ) * fill.fill_quantity
+            realized_pnl += (fill.fill_price - current.average_price) * fill.fill_quantity
             next_quantity = current.quantity - fill.fill_quantity
             next_average = current.average_price if next_quantity else 0.0
             positions[fill.symbol] = replace(
@@ -53,8 +47,7 @@ class PortfolioEngine:
             raise ValueError("Cash cannot become negative after fill application")
 
         gross_exposure = sum(
-            position.quantity * position.average_price
-            for position in positions.values()
+            position.quantity * position.average_price for position in positions.values()
         )
         equity = cash + gross_exposure
         return PortfolioState(
@@ -87,11 +80,7 @@ class PortfolioEngine:
 
     def replay(self, events: list[JournalEvent]) -> PortfolioState:
         init_event = next(
-            (
-                event
-                for event in events
-                if event.event_type is EventType.PORTFOLIO_INITIALIZED
-            ),
+            (event for event in events if event.event_type is EventType.PORTFOLIO_INITIALIZED),
             None,
         )
         if init_event is None:

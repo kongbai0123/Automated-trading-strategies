@@ -29,9 +29,7 @@ class MCPJsonRpcHandler:
             elif method == "tools/call":
                 name = params.get("name")
                 arguments = params.get("arguments") or {}
-                result = self._service.format_tool_result(
-                    self._service.call_tool(name, arguments)
-                )
+                result = self._service.format_tool_result(self._service.call_tool(name, arguments))
             else:
                 return self._error(request_id, -32601, f"Unknown MCP method: {method}")
             return {

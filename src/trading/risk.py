@@ -82,10 +82,7 @@ class RiskEngine:
                 reject_reasons.append("max_symbol_exposure")
 
             constraints_checked.append("max_total_exposure")
-            if (
-                portfolio.gross_exposure + estimated_notional
-                > self._config.max_total_exposure
-            ):
+            if portfolio.gross_exposure + estimated_notional > self._config.max_total_exposure:
                 reject_reasons.append("max_total_exposure")
 
             constraints_checked.append("cash_constraint")
@@ -118,9 +115,7 @@ class RiskEngine:
             decision_status=decision_status,
             reject_reasons=reject_reasons,
             warning_reasons=warning_reasons,
-            adjusted_quantity=min(
-                intent.requested_quantity, self._config.max_position_size
-            ),
+            adjusted_quantity=min(intent.requested_quantity, self._config.max_position_size),
             risk_score=(
                 len(reject_reasons) / max(len(constraints_checked), 1)
                 if reject_reasons

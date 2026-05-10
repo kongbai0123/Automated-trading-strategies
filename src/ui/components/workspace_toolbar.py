@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 import streamlit as st
 
@@ -32,9 +32,7 @@ def render_workspace_toolbar(
         [1.5, 1, 1, 1.4, 1.1]
     )
     with col_symbol:
-        symbol = st.selectbox(
-            "Symbol", list(symbols), index=list(symbols).index(selected_symbol)
-        )
+        symbol = st.selectbox("Symbol", list(symbols), index=list(symbols).index(selected_symbol))
     with col_timeframe:
         timeframe = st.selectbox(
             "Timeframe",
@@ -42,9 +40,7 @@ def render_workspace_toolbar(
             index=list(timeframes).index(selected_timeframe),
         )
     with col_period:
-        period = st.selectbox(
-            "Period", list(periods), index=list(periods).index(selected_period)
-        )
+        period = st.selectbox("Period", list(periods), index=list(periods).index(selected_period))
     with col_strategy:
         strategy_name = st.selectbox(
             "Strategy",

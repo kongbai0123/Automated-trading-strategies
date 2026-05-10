@@ -40,14 +40,10 @@ def calculate_macd(
     signal_line = calculate_ema(macd_line, signal)
     histogram = macd_line - signal_line
 
-    return pd.DataFrame(
-        {"MACD": macd_line, "Signal": signal_line, "Histogram": histogram}
-    )
+    return pd.DataFrame({"MACD": macd_line, "Signal": signal_line, "Histogram": histogram})
 
 
-def calculate_atr(
-    high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14
-) -> pd.Series:
+def calculate_atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
     """Calculate Average True Range."""
     tr1 = high - low
     tr2 = (high - close.shift()).abs()
@@ -65,9 +61,7 @@ def calculate_bollinger_bands(
     std = series.rolling(window=period).std()
     upper_band = sma + (std * std_dev)
     lower_band = sma - (std * std_dev)
-    return pd.DataFrame(
-        {"BB_Middle": sma, "BB_Upper": upper_band, "BB_Lower": lower_band}
-    )
+    return pd.DataFrame({"BB_Middle": sma, "BB_Upper": upper_band, "BB_Lower": lower_band})
 
 
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:

@@ -2,7 +2,6 @@ import datetime
 import json
 import os
 
-
 from .analytics import calculate_kpi
 from .backtest import BacktestEngine
 from .indicators import add_indicators
@@ -14,7 +13,7 @@ def load_config() -> dict:
     config_path = "configs/ui_config.json"
     if not os.path.exists(config_path):
         return {}
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         return json.load(f)
 
 

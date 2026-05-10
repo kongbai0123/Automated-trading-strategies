@@ -54,9 +54,7 @@ def test_market_status_items_degrade_when_source_fails() -> None:
     def failing_fetch(symbol: str, *, period: str, interval: str) -> MarketDataResult:
         raise RuntimeError("provider failed")
 
-    items = build_market_status_items(
-        {"TAIEX": "^TWII"}, fetch_market_data=failing_fetch
-    )
+    items = build_market_status_items({"TAIEX": "^TWII"}, fetch_market_data=failing_fetch)
 
     assert items[0].label == "TAIEX"
     assert items[0].value == "--"

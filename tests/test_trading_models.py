@@ -15,9 +15,7 @@ def test_signal_and_intent_keep_traceable_ids_and_timestamps():
     processed_at = datetime(2026, 5, 7, 9, 0, 2)
 
     signal = SignalEvent(
-        signal_id=generate_trace_id(
-            "signal", "run-1", "2330.TW", market_time.isoformat()
-        ),
+        signal_id=generate_trace_id("signal", "run-1", "2330.TW", market_time.isoformat()),
         run_id="run-1",
         strategy_id="ma-cross",
         symbol="2330.TW",

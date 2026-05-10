@@ -32,11 +32,7 @@ def build_data_status(metadata: dict[str, Any]) -> DataStatus:
     elif source == "local_csv" and fallback_used:
         badge_label = "Local Cache"
         tone = "warning"
-        message = (
-            warnings[0]
-            if warnings
-            else "Live data unavailable. Using local CSV fallback."
-        )
+        message = warnings[0] if warnings else "Live data unavailable. Using local CSV fallback."
     else:
         badge_label = "Unknown Source"
         tone = "warning"

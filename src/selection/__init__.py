@@ -1,7 +1,7 @@
 from .intent_factory import IntentFactory
 from .ranking import RankingEngine
 from .regime import MarketRegime, RegimeFilter
-from .scoring import CandidateScore, CandidateSignal, CandidateScorer
+from .scoring import CandidateScore, CandidateScorer, CandidateSignal
 from .sizing import (
     FixedNotionalSizingPolicy,
     FixedUnitsSizingPolicy,

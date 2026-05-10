@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable
 
 import streamlit as st
 
@@ -25,13 +25,13 @@ def render_market_bar(
     for item in items:
         color = "#22c55e" if item.change_pct >= 0 else "#ef4444"
         item_markup.append(
-            (
+            
                 "<div class='qp-market-item'>"
                 f"<span class='qp-market-label'>{item.label}</span>"
                 f"<span class='qp-market-value' style='color:{color}'>{item.value}</span>"
                 f"<span class='qp-market-change' style='color:{color}'>{item.change_pct:+.2%}</span>"
                 "</div>"
-            )
+            
         )
 
     st.markdown(

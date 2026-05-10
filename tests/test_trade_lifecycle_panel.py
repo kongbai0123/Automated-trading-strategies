@@ -77,9 +77,7 @@ def test_lifecycle_snapshot_exposes_trading_workflow_state() -> None:
     ]
     portfolio_state = PortfolioState(
         cash=999000.0,
-        positions={
-            "2330.TW": PositionState(symbol="2330.TW", quantity=10, average_price=100.0)
-        },
+        positions={"2330.TW": PositionState(symbol="2330.TW", quantity=10, average_price=100.0)},
         realized_pnl=0.0,
         unrealized_pnl=0.0,
         equity=1000000.0,

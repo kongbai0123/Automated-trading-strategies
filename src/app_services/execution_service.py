@@ -36,12 +36,8 @@ def build_signal_from_analysis(
     created_at = created_at or datetime.now()
 
     return SignalEvent(
-        signal_id=generate_trace_id(
-            "signal", strategy_name, symbol, market_time.isoformat()
-        ),
-        run_id=generate_trace_id(
-            "run", symbol, timeframe, created_at.strftime("%Y%m%d")
-        ),
+        signal_id=generate_trace_id("signal", strategy_name, symbol, market_time.isoformat()),
+        run_id=generate_trace_id("run", symbol, timeframe, created_at.strftime("%Y%m%d")),
         strategy_id=strategy_name,
         symbol=symbol,
         timeframe=timeframe,

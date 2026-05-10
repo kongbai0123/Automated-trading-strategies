@@ -1,5 +1,6 @@
 import pandas as pd
-from .chips_provider import get_latest_chips, get_chip_score
+
+from .chips_provider import get_chip_score, get_latest_chips
 
 
 def analyze_symbol_detailed(df: pd.DataFrame, symbol: str = "") -> dict:
@@ -61,9 +62,7 @@ def analyze_symbol_detailed(df: pd.DataFrame, symbol: str = "") -> dict:
     risk = "中"
     if "close" in df.columns:
         pct_change = (
-            abs(latest["close"] - prev["close"]) / prev["close"]
-            if prev["close"] > 0
-            else 0
+            abs(latest["close"] - prev["close"]) / prev["close"] if prev["close"] > 0 else 0
         )
         if pct_change > 0.04:
             risk = "高"

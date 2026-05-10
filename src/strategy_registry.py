@@ -1,9 +1,9 @@
-from typing import Type, Dict
+
 from .strategies import (
-    Strategy,
-    RSIMACDStrategy,
-    MACrossoverStrategy,
     BollingerBreakoutStrategy,
+    MACrossoverStrategy,
+    RSIMACDStrategy,
+    Strategy,
 )
 
 
@@ -13,7 +13,7 @@ class StrategyRegistry:
     strategies by name for the UI.
     """
 
-    _registry: Dict[str, Type[Strategy]] = {
+    _registry: dict[str, type[Strategy]] = {
         "RSI_MACD": RSIMACDStrategy,
         "MA_CROSSOVER": MACrossoverStrategy,
         "BOLLINGER_BREAKOUT": BollingerBreakoutStrategy,
@@ -30,5 +30,5 @@ class StrategyRegistry:
         return cls._registry[name](**kwargs)
 
     @classmethod
-    def register(cls, name: str, strategy_cls: Type[Strategy]):
+    def register(cls, name: str, strategy_cls: type[Strategy]):
         cls._registry[name] = strategy_cls

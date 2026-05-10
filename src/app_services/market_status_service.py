@@ -4,6 +4,8 @@ from collections.abc import Mapping
 
 from src.market_data import (
     MarketDataResult,
+)
+from src.market_data import (
     fetch_market_data as default_fetch_market_data,
 )
 from src.ui.components.market_bar import MarketStatusItem
@@ -17,9 +19,7 @@ def build_market_status_items(
     items: list[MarketStatusItem] = []
     for label, symbol in tickers.items():
         try:
-            result: MarketDataResult = fetch_market_data(
-                symbol, period="5d", interval="1d"
-            )
+            result: MarketDataResult = fetch_market_data(symbol, period="5d", interval="1d")
             close = result.dataframe["close"].dropna()
             if len(close) >= 2:
                 current = float(close.iloc[-1])

@@ -1,7 +1,8 @@
+import os
+
 from data_loader import load_csv
 from indicators import add_indicators
 from strategies import RSIMACDStrategy
-import os
 
 
 def run_strategy_demo():
@@ -24,8 +25,8 @@ def run_strategy_demo():
     print(df[["close", "rsi_14", "macd_hist", "signal"]].tail(10))
 
     # Formal Backtest Engine
-    from backtest import BacktestEngine
     from analytics import calculate_kpi
+    from backtest import BacktestEngine
 
     engine = BacktestEngine(transaction_cost=0.001)
     df_bt = engine.run(df)

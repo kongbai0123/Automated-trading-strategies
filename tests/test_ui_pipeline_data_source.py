@@ -6,13 +6,11 @@ import pandas as pd
 import pytest
 
 from src.market_data import ControlledMarketDataError, MarketDataResult
-from src.ui_pipeline import run_backtest_pipeline
 from src.ui.components.data_status import build_data_status
+from src.ui_pipeline import run_backtest_pipeline
 
 
-def _market_result(
-    source: str = "local_csv", fallback_used: bool = True
-) -> MarketDataResult:
+def _market_result(source: str = "local_csv", fallback_used: bool = True) -> MarketDataResult:
     frame = pd.DataFrame(
         {
             "open": [100.0, 101.0, 102.0],
@@ -28,21 +26,13 @@ def _market_result(
         source=source,
         live_attempted=True,
         fallback_used=fallback_used,
-        warnings=(
-            ["Live data unavailable. Using local CSV fallback."]
-            if fallback_used
-            else []
-        ),
-        diagnostics=(
-            {"live_error": "unable to open database file"} if fallback_used else {}
-        ),
+        warnings=(["Live data unavailable. Using local CSV fallback."] if fallback_used else []),
+        diagnostics=({"live_error": "unable to open database file"} if fallback_used else {}),
         data_freshness="DELAYED",
         last_bar_time=datetime(2026, 5, 9),
         is_stale=False,
         provider_name="LocalCsvProvider" if fallback_used else "YahooFinanceProvider",
-        attempted_sources=(
-            ["live_yfinance", "local_csv"] if fallback_used else ["live_yfinance"]
-        ),
+        attempted_sources=(["live_yfinance", "local_csv"] if fallback_used else ["live_yfinance"]),
         fetch_latency_ms=1,
         cache_hit=fallback_used,
     )
@@ -67,9 +57,7 @@ def test_pipeline_metadata_contains_data_source_and_warnings(
     metadata = result["metadata"]
     assert metadata["data_source"] == "local_csv"
     assert metadata["fallback_used"] is True
-    assert metadata["data_warnings"] == [
-        "Live data unavailable. Using local CSV fallback."
-    ]
+    assert metadata["data_warnings"] == ["Live data unavailable. Using local CSV fallback."]
     assert metadata["data_diagnostics"]["live_error"] == "unable to open database file"
     assert metadata["data_freshness"] == "DELAYED"
     assert metadata["last_bar_time"] == datetime(2026, 5, 9)
@@ -89,9 +77,7 @@ def test_pipeline_raises_controlled_error_when_all_sources_fail(
 
     monkeypatch.setattr("src.ui_pipeline.fetch_market_data", fake_fetch)
 
-    with pytest.raises(
-        ControlledMarketDataError, match="Unable to load market data for 2330.TW"
-    ):
+    with pytest.raises(ControlledMarketDataError, match="Unable to load market data for 2330.TW"):
         run_backtest_pipeline(
             symbol="2330.TW",
             strategy_name="RSI_MACD",

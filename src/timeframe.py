@@ -50,9 +50,7 @@ def resample_ohlcv(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
     }
 
     # Keep only columns that exist in the aggregation rules
-    actual_agg = {
-        col: agg_dict[col.lower()] for col in df.columns if col.lower() in agg_dict
-    }
+    actual_agg = {col: agg_dict[col.lower()] for col in df.columns if col.lower() in agg_dict}
 
     # Perform resampling
     resampled_df = df.resample(freq).agg(actual_agg).dropna()
