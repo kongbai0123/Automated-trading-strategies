@@ -33,8 +33,8 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Pushing to GitHub...
-git push
+echo Pushing to GitHub (main branch)...
+git push origin HEAD:main
 if %errorlevel% neq 0 (
     echo [ERROR] git push failed.
     goto end
