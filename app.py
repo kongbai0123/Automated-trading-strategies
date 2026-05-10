@@ -1,651 +1,422 @@
-import os
-import sys
-from typing import Any
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Any
 
 import pandas as pd
-import numpy as np
 import streamlit as st
-import plotly.graph_objects as go
+import yfinance as yf
 
-# Ensure we can import from src
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
-
-from src.automation import generate_daily_report
-from src.charting import (
-    create_equity_curve,
-    create_forecast_chart,
-    create_price_chart,
-    create_rsi_chart,
-)
-from src.predictor import get_ai_projection, get_investment_advice, predict_future_prices
+from src.charting import create_equity_curve, create_forecast_chart, create_price_chart, create_rsi_chart
+from src.predictor import get_ai_projection, predict_future_prices
 from src.scanner import analyze_symbol_detailed
-from src.storage import (
-    HISTORY_FILE,
-    ensure_storage,
-    get_history,
-    get_watchlist,
-    log_access,
-    remove_from_watchlist,
-    save_to_watchlist,
-)
+from src.storage import ensure_storage, get_watchlist, remove_from_watchlist, save_to_watchlist
 from src.strategy_registry import StrategyRegistry
+from src.trading.engine import TradingEngine
+from src.trading.journal import InMemoryJournal
+from src.trading.models import OrderSide, SignalEvent, generate_trace_id
+from src.trading.risk import RiskConfig
+from src.ui.components.market_bar import MarketStatusItem, render_market_bar
+from src.ui.components.watchlist import WatchlistRow, render_watchlist
+from src.ui.components.workspace_toolbar import render_workspace_toolbar
+from src.ui.pages.backtest_workspace import BacktestWorkspaceView, render_backtest_workspace
+from src.ui.pages.research_page import ResearchPageView, render_research_page
+from src.ui.pages.scanner_page import ScannerPageView, render_scanner_page
+from src.ui.pages.trading_workspace import TradingWorkspaceView, render_trading_workspace
 from src.ui_pipeline import load_config, run_backtest_pipeline
 
-st.set_page_config(
-    page_title="Trading Workspace",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+st.set_page_config(page_title="Professional Quant Trading Workspace", layout="wide", initial_sidebar_state="collapsed")
 
-TIMEFRAME_OPTIONS = {
-    "月K": "1mo",
-    "週K": "1wk",
-    "日K": "1d",
-    "60 分": "60m",
-    "15 分": "15m",
-    "5 分": "5m",
-    "1 分": "1m",
+TIMEFRAME_LABELS = {
+    "1m": "1 Minute",
+    "5m": "5 Minutes",
+    "15m": "15 Minutes",
+    "60m": "1 Hour",
+    "1d": "1 Day",
+    "1wk": "1 Week",
+    "1mo": "1 Month",
 }
-
-PERIOD_OPTIONS_BY_INTERVAL = {
-    "1m": ["1d", "5d", "7d"],
-    "5m": ["1d", "5d", "7d"],
-    "15m": ["1d", "5d", "1mo", "3mo"],
-    "60m": ["1d", "5d", "1mo", "3mo"],
+TIMEFRAME_OPTIONS = list(TIMEFRAME_LABELS.keys())
+PERIOD_OPTIONS = ["1mo", "3mo", "6mo", "1y", "2y", "5y"]
+EXECUTION_MODES = ["Paper Trading", "Semi Auto"]
+MARKET_TICKERS = {
+    "TAIEX": "^TWII",
+    "NASDAQ": "^IXIC",
+    "BTC": "BTC-USD",
+    "VIX": "^VIX",
 }
-
-STRATEGY_DESCRIPTIONS = {
-    "RSI_MACD": "RSI + MACD 綜合策略：結合超買超賣與趨勢動能",
-    "MA_CROSSOVER": "移動平均交叉策略：黃金交叉買進，死亡交叉賣出",
-    "BOLLINGER_BREAKOUT": "布林通道突破策略：突破上軌買進，跌破下軌賣出",
-}
-
+DEFAULT_SYMBOL = "2330.TW"
+DEFAULT_REQUESTED_QUANTITY = 10
 CONFIG = load_config()
-DEFAULT_TRANSACTION_COST = CONFIG.get("transaction_cost", 0.001)
-STRATEGY_DEFAULTS = CONFIG.get("strategy_defaults", {})
+DEFAULT_TRANSACTION_COST = float(CONFIG.get("transaction_cost", 0.001))
 
 
 def inject_css() -> None:
     st.markdown(
         """
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
-
-            :root {
-                --bg: #07111f;
-                --panel: rgba(9, 21, 37, 0.78);
-                --line: rgba(148, 163, 184, 0.18);
-                --text: #e2e8f0;
-                --muted: #94a3b8;
-                --accent: #38bdf8;
-            }
-
-            .stApp {
-                background: linear-gradient(180deg, #08111d 0%, #07111f 55%, #020617 100%);
-                color: var(--text);
-                font-family: 'Noto Sans TC', sans-serif;
-            }
-
-            h1, h2, h3 {
-                font-family: 'Space Grotesk', 'Noto Sans TC', sans-serif !important;
-            }
-
-            .block-container {
-                padding-top: 0rem;
-                padding-bottom: 1rem;
-                max-width: 100%;
-            }
-
-            /* Compact Ticker Bar */
-            .ticker-bar {
-                background: rgba(15, 23, 42, 0.6);
-                border-bottom: 1px solid var(--line);
-                padding: 0.4rem 1rem;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                font-size: 0.85rem;
-                backdrop-filter: blur(8px);
-                margin-bottom: 0.5rem;
-            }
-            .ticker-group { display: flex; gap: 1.5rem; }
-            .ticker-item { display: flex; align-items: center; gap: 0.4rem; }
-            .ticker-label { color: var(--muted); font-weight: 500; }
-            .ticker-val { font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
-
-            /* Compact Metrics */
-            [data-testid="stMetric"] {
-                background: var(--panel);
-                border: 1px solid var(--line);
-                border-radius: 8px;
-                padding: 0.4rem 0.7rem !important;
-                backdrop-filter: blur(12px);
-            }
-            [data-testid="stMetricValue"] { font-size: 1.1rem !important; }
-            [data-testid="stMetricDelta"] { font-size: 0.8rem !important; }
-
-            /* Toolbar Styling */
-            .compact-toolbar {
-                background: rgba(30, 41, 59, 0.4);
-                padding: 0.25rem 0.5rem;
-                border-radius: 6px;
-                border: 1px solid var(--line);
-                margin-bottom: 1rem;
-            }
-
-            .stTabs [data-baseweb="tab-list"] { gap: 0.5rem; }
-            .stTabs [data-baseweb="tab"] {
-                background: rgba(15, 23, 42, 0.55);
-                border: 1px solid var(--line);
-                border-radius: 6px;
-                padding: 0.3rem 0.8rem;
-                font-size: 0.85rem;
-            }
-
-            .stTabs [aria-selected="true"] {
-                background: rgba(56, 189, 248, 0.16) !important;
-                border-color: rgba(56, 189, 248, 0.45) !important;
-            }
+        .stApp { background: #0b1220; color: #e2e8f0; }
+        .block-container { padding-top: 0.6rem; padding-bottom: 1rem; max-width: 100%; }
+        .qp-market-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.45rem 0.8rem;
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            background: rgba(15, 23, 42, 0.85);
+            margin-bottom: 0.8rem;
+            font-size: 0.82rem;
+        }
+        .qp-market-group { display: flex; gap: 1rem; flex-wrap: wrap; }
+        .qp-market-item { display: flex; gap: 0.45rem; align-items: center; }
+        .qp-market-label { color: #94a3b8; }
+        .qp-market-value { font-weight: 600; }
+        .qp-market-change { font-weight: 600; }
+        .qp-market-meta { color: #94a3b8; }
+        div[data-testid="stMetric"] {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            border-radius: 8px;
+            padding: 0.35rem 0.65rem;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
 
-def init_state() -> None:
+def init_session_state() -> None:
     ensure_storage()
-    if "symbol_input" not in st.session_state:
-        st.session_state.symbol_input = "2330.TW"
-    if "timeframe_label" not in st.session_state:
-        st.session_state.timeframe_label = "日K"
-    if "selected_strategy" not in st.session_state:
-        strategies = StrategyRegistry.get_available_strategies()
-        st.session_state.selected_strategy = strategies[0] if strategies else "RSI_MACD"
-    if "chart_type" not in st.session_state:
-        st.session_state.chart_type = "Candlestick"
-    if "period" not in st.session_state:
-        st.session_state.period = "2y"
-    if "show_watchlist" not in st.session_state:
-        st.session_state.show_watchlist = True
+    defaults = {
+        "selected_symbol": DEFAULT_SYMBOL,
+        "selected_timeframe": "1d",
+        "selected_period": "2y",
+        "selected_strategy": StrategyRegistry.get_available_strategies()[0],
+        "selected_execution_mode": EXECUTION_MODES[0],
+        "analysis_result": None,
+    }
+    for key, value in defaults.items():
+        st.session_state.setdefault(key, value)
+
+    st.session_state.setdefault("paper_journal", InMemoryJournal())
+    st.session_state.setdefault(
+        "paper_engine",
+        TradingEngine.for_paper_trading(
+            risk_config=_risk_config(semi_auto=False),
+            journal=st.session_state["paper_journal"],
+            starting_cash=1_000_000.0,
+        ),
+    )
+    st.session_state.setdefault("semi_journal", InMemoryJournal())
+    st.session_state.setdefault(
+        "semi_engine",
+        TradingEngine.for_semi_auto(
+            risk_config=_risk_config(semi_auto=True),
+            journal=st.session_state["semi_journal"],
+            starting_cash=1_000_000.0,
+        ),
+    )
 
 
-def current_period_options(interval: str) -> list[str]:
-    return PERIOD_OPTIONS_BY_INTERVAL.get(interval, ["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"])
+def _risk_config(*, semi_auto: bool) -> RiskConfig:
+    return RiskConfig(
+        max_position_size=100,
+        max_symbol_exposure=250_000.0,
+        max_total_exposure=500_000.0,
+        max_daily_loss=100_000.0,
+        semi_auto=semi_auto,
+        cooldown_minutes=30,
+        symbol_allowlist=None,
+    )
 
 
-def normalize_period(interval: str) -> None:
-    period_options = current_period_options(interval)
-    if st.session_state.get("period") not in period_options:
-        fallback = "2y" if "2y" in period_options else period_options[min(1, len(period_options) - 1)]
-        st.session_state.period = fallback
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_market_data():
-    import yfinance as yf
-    tickers = ["^TWII", "^IXIC", "BTC-USD", "^VIX"]
-    res = {}
+@st.cache_data(ttl=180, show_spinner=False)
+def load_market_snapshot() -> list[MarketStatusItem]:
     try:
-        df = yf.download(tickers, period="5d", progress=False)
-        closes = df['Close'] if 'Close' in df.columns else df
-        for t in tickers:
-            if t in closes.columns:
-                series = closes[t].dropna()
-                if len(series) >= 2:
-                    curr = float(series.iloc[-1])
-                    prev = float(series.iloc[-2])
-                    pct = (curr - prev) / prev
-                    res[t] = {"price": curr, "change": pct}
-                elif len(series) == 1:
-                    res[t] = {"price": float(series.iloc[0]), "change": 0.0}
-                else:
-                    res[t] = {"price": 0.0, "change": 0.0}
+        downloaded = yf.download(list(MARKET_TICKERS.values()), period="5d", progress=False, auto_adjust=False)
+        close_frame = downloaded["Close"] if "Close" in downloaded else downloaded
+        items: list[MarketStatusItem] = []
+        for label, ticker in MARKET_TICKERS.items():
+            series = close_frame[ticker].dropna()
+            if len(series) >= 2:
+                current = float(series.iloc[-1])
+                previous = float(series.iloc[-2])
+                change_pct = 0.0 if previous == 0 else (current - previous) / previous
+            elif len(series) == 1:
+                current = float(series.iloc[-1])
+                change_pct = 0.0
             else:
-                res[t] = {"price": 0.0, "change": 0.0}
-        return res
+                current = 0.0
+                change_pct = 0.0
+            items.append(MarketStatusItem(label=label, value=f"{current:,.2f}", change_pct=change_pct))
+        return items
     except Exception:
-        return {t: {"price": 0.0, "change": 0.0} for t in tickers}
+        return [MarketStatusItem(label=label, value="--", change_pct=0.0) for label in MARKET_TICKERS]
 
 
-def render_market_status_bar() -> None:
-    data = get_market_data()
-    mapping = {"^TWII": "TAIEX", "^IXIC": "NASDAQ", "BTC-USD": "BTC", "^VIX": "VIX"}
-    
-    ticker_items = []
-    for t in ["^TWII", "^IXIC", "BTC-USD", "^VIX"]:
-        d = data.get(t, {"price": 0.0, "change": 0.0})
-        color = "#10b981" if d["change"] >= 0 else "#f43f5e"
-        if t == "^VIX":
-            color = "#f43f5e" if d["change"] > 0 else "#10b981"
-        
-        ticker_items.append(f"""
-            <div class="ticker-item">
-                <span class="ticker-label">{mapping[t]}</span>
-                <span class="ticker-val" style="color: {color};">{d['price']:,.2f} ({d['change']:+.2%})</span>
-            </div>
-        """)
-    
-    now_str = datetime.now().strftime("%H:%M:%S")
-    st.markdown(f"""
-        <div class="ticker-bar">
-            <div class="ticker-group">
-                {''.join(ticker_items)}
-            </div>
-            <div style="color: var(--muted); font-size: 0.8rem;">
-                <span style="margin-right: 10px;">● Live</span> {now_str} (TW)
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+def load_analysis(symbol: str, strategy_name: str, period: str, interval: str) -> dict[str, Any]:
+    return run_backtest_pipeline(
+        symbol=symbol,
+        strategy_name=strategy_name,
+        strategy_params={},
+        transaction_cost=DEFAULT_TRANSACTION_COST,
+        period=period,
+        interval=interval,
+    )
 
 
-def render_top_controls() -> dict[str, Any]:
-    strategies = StrategyRegistry.get_available_strategies()
-    # Use a more compact layout for the toolbar
-    col1, col2, col3, col4, col5, col6 = st.columns([1.8, 0.8, 0.8, 1.2, 0.9, 0.7])
+def build_signal_from_analysis(result: dict[str, Any], *, symbol: str, strategy_name: str, timeframe: str) -> SignalEvent | None:
+    dataframe = result["df"]
+    if "signal" not in dataframe.columns:
+        return None
 
-    with col1:
-        symbol = st.text_input("Symbol", key="symbol_input", label_visibility="collapsed", placeholder="Symbol (e.g. 2330.TW)")
-    with col2:
-        timeframe_label = st.selectbox("TF", list(TIMEFRAME_OPTIONS.keys()), key="timeframe_label", label_visibility="collapsed")
-    interval = TIMEFRAME_OPTIONS[timeframe_label]
-    normalize_period(interval)
-    period_options = current_period_options(interval)
+    actionable = dataframe[dataframe["signal"].isin([1, -1])]
+    if actionable.empty:
+        return None
 
-    with col3:
-        period = st.selectbox("Period", period_options, key="period", label_visibility="collapsed")
-    with col4:
-        strategy_name = st.selectbox("Strategy", strategies, key="selected_strategy", label_visibility="collapsed")
-    with col5:
-        chart_type = st.selectbox("Chart", ["Candlestick", "Line", "OHLC"], key="chart_type", label_visibility="collapsed")
-    with col6:
-        run_clicked = st.button("Run", use_container_width=True, type="primary")
+    latest = actionable.iloc[-1]
+    market_time = pd.Timestamp(latest.name).to_pydatetime()
+    side = OrderSide.BUY if int(latest["signal"]) > 0 else OrderSide.SELL
+    reference_price = float(latest.get("close", 0.0))
+    created_at = datetime.now()
+    return SignalEvent(
+        signal_id=generate_trace_id("signal", strategy_name, symbol, market_time.isoformat()),
+        run_id=generate_trace_id("run", symbol, timeframe, created_at.strftime("%Y%m%d")),
+        strategy_id=strategy_name,
+        symbol=symbol,
+        timeframe=timeframe,
+        side=side,
+        signal_type="ENTRY",
+        strength=abs(float(latest["signal"])),
+        confidence=0.75,
+        market_time=market_time,
+        created_at=created_at,
+        processed_at=created_at,
+        metadata={"reference_price": reference_price},
+    )
 
+
+def _current_engine(mode: str) -> TradingEngine:
+    return st.session_state["paper_engine"] if mode == "Paper Trading" else st.session_state["semi_engine"]
+
+
+def _current_journal(mode: str) -> InMemoryJournal:
+    return st.session_state["paper_journal"] if mode == "Paper Trading" else st.session_state["semi_journal"]
+
+
+def execute_latest_signal(mode: str) -> None:
+    result = st.session_state.get("analysis_result")
+    if not result:
+        st.warning("Run analysis first.")
+        return
+
+    signal = build_signal_from_analysis(
+        result,
+        symbol=st.session_state["selected_symbol"],
+        strategy_name=st.session_state["selected_strategy"],
+        timeframe=st.session_state["selected_timeframe"],
+    )
+    if signal is None:
+        st.warning("No actionable signal found in the current dataset.")
+        return
+
+    execution_price = float(signal.metadata.get("reference_price", 0.0))
+    engine = _current_engine(mode)
+    outcome = engine.process_signal(
+        signal,
+        requested_quantity=DEFAULT_REQUESTED_QUANTITY,
+        execution_price=execution_price,
+    )
+    if outcome.order is None:
+        st.info(f"{mode}: intent stopped at {outcome.intent.status.value}.")
+    else:
+        st.success(f"{mode}: order {outcome.order.order_id} is {outcome.order.status.value}.")
+
+
+def build_watchlist_rows(current_symbol: str, dataframe: pd.DataFrame | None) -> list[WatchlistRow]:
+    watchlist_symbols = get_watchlist()
+    if current_symbol not in watchlist_symbols:
+        watchlist_symbols = [current_symbol] + watchlist_symbols
+
+    last_price = None
+    change_pct = None
+    volume = None
+    if dataframe is not None and not dataframe.empty:
+        last_price = float(dataframe["close"].iloc[-1])
+        if len(dataframe) > 1 and float(dataframe["close"].iloc[-2]) != 0:
+            change_pct = (float(dataframe["close"].iloc[-1]) - float(dataframe["close"].iloc[-2])) / float(dataframe["close"].iloc[-2])
+        volume = float(dataframe["volume"].iloc[-1]) if "volume" in dataframe.columns else None
+
+    rows: list[WatchlistRow] = []
+    for symbol in watchlist_symbols:
+        if symbol == current_symbol:
+            rows.append(WatchlistRow(symbol=symbol, last_price=last_price, change_pct=change_pct, volume=volume))
+        else:
+            rows.append(WatchlistRow(symbol=symbol))
+    return rows
+
+
+def build_kpis(result: dict[str, Any]) -> dict[str, str]:
+    kpi = result["kpi"]
     return {
-        "symbol": symbol.strip(),
-        "timeframe_label": timeframe_label,
-        "interval": interval,
-        "period": period,
-        "strategy_name": strategy_name,
-        "chart_type": chart_type,
-        "run_clicked": run_clicked,
+        "Return": f"{float(kpi.get('return', 0.0)):.2%}",
+        "Win Rate": f"{float(kpi.get('win_rate', 0.0)):.2%}",
+        "Max Drawdown": f"{float(kpi.get('max_drawdown', 0.0)):.2%}",
+        "Signal": str(int(result["df"]["signal"].iloc[-1])) if "signal" in result["df"].columns else "0",
     }
 
 
-def render_strategy_controls(strategy_name: str) -> tuple[dict[str, Any], float]:
-    params: dict[str, Any] = {}
-    with st.expander("策略參數設定", expanded=False):
-        left, right = st.columns([2.4, 1])
-        with left:
-            st.caption(STRATEGY_DESCRIPTIONS.get(strategy_name, "請選擇策略"))
-            if strategy_name == "RSI_MACD":
-                defaults = STRATEGY_DEFAULTS.get("RSIMACDStrategy", {"overbought": 70, "oversold": 30})
-                p1, p2 = st.columns(2)
-                params["overbought"] = p1.slider("RSI 超買門檻", 50, 90, int(defaults.get("overbought", 70)))
-                params["oversold"] = p2.slider("RSI 超賣門檻", 10, 50, int(defaults.get("oversold", 30)))
-            elif strategy_name == "MA_CROSSOVER":
-                defaults = STRATEGY_DEFAULTS.get("MACrossoverStrategy", {"short_col": "sma_20", "long_col": "sma_50"})
-                p1, p2 = st.columns(2)
-                params["short_col"] = p1.text_input("短期均線", defaults.get("short_col", "sma_20"))
-                params["long_col"] = p2.text_input("長期均線", defaults.get("long_col", "sma_50"))
-            elif strategy_name == "BOLLINGER_BREAKOUT":
-                defaults = STRATEGY_DEFAULTS.get(
-                    "BollingerBreakoutStrategy",
-                    {"upper_col": "bb_upper", "lower_col": "bb_lower"},
-                )
-                p1, p2 = st.columns(2)
-                params["upper_col"] = p1.text_input("上軌欄位", defaults.get("upper_col", "bb_upper"))
-                params["lower_col"] = p2.text_input("下軌欄位", defaults.get("lower_col", "bb_lower"))
-        with right:
-            transaction_cost = st.number_input(
-                "手續費率",
-                min_value=0.0,
-                max_value=0.1,
-                value=float(DEFAULT_TRANSACTION_COST),
-                step=0.0001,
-                format="%.4f",
-            )
-            st.caption("台股建議 0.001425，加上回購成本約 0.003")
-
-    return params, transaction_cost
+def build_scanner_rows(result: dict[str, Any]) -> list[dict[str, object]]:
+    analysis = analyze_symbol_detailed(result["df"], symbol=st.session_state["selected_symbol"])
+    latest_close = float(result["df"]["close"].iloc[-1])
+    return [
+        {
+            "symbol": st.session_state["selected_symbol"],
+            "strategy": st.session_state["selected_strategy"],
+            "score": analysis.get("score", 0),
+            "trend": analysis.get("trend", "Unknown"),
+            "risk": analysis.get("risk", "Unknown"),
+            "last_price": latest_close,
+            "reason": analysis.get("reason", ""),
+        }
+    ]
 
 
-def latest_signal_label(signal: Any) -> tuple[str, str]:
-    if signal == 1:
-        return "▲ 看多", "signal-buy"
-    if signal == -1:
-        return "▼ 看空", "signal-sell"
-    return "◆ 觀望", "signal-hold"
+def render_workspace(result: dict[str, Any]) -> None:
+    dataframe = result["df"]
+    selected_symbol = st.session_state["selected_symbol"]
+    execution_mode = st.session_state["selected_execution_mode"]
+    journal = _current_journal(execution_mode)
+    engine = _current_engine(execution_mode)
+    try:
+        portfolio_state = engine.replay_portfolio(journal.read_all())
+    except ValueError:
+        portfolio_state = None
 
+    price_chart = create_price_chart(dataframe, title=f"{selected_symbol} Price Action")
+    rsi_chart = create_rsi_chart(dataframe)
+    equity_chart = create_equity_curve(dataframe)
+    projection = get_ai_projection(dataframe)
+    forecast_chart = create_forecast_chart(dataframe, predict_future_prices(dataframe))
+    strategy_name = result["metadata"]["strategy_name"]
+    latest_signal = int(dataframe["signal"].iloc[-1]) if "signal" in dataframe.columns else 0
+    latest_close = float(dataframe["close"].iloc[-1])
 
-def render_kpi_row(result: dict[str, Any]) -> None:
-    """Only shows the 4 Primary KPIs for immediate decision making."""
-    kpi = result["kpi"]
-    latest = result["df"].iloc[-1]
-    signal_text, _ = latest_signal_label(latest.get("signal", 0))
-
-    cols = st.columns(4)
-    
-    ret = kpi.get("total_return", 0)
-    cols[0].metric("Total Return", f"{ret:.2%}", delta=f"{ret:.2%}", delta_color="normal")
-    
-    sharpe = kpi.get("sharpe", 0)
-    cols[1].metric("Sharpe Ratio", f"{sharpe:.2f}")
-    
-    mdd = kpi.get("max_drawdown", 0)
-    cols[2].metric("Max Drawdown", f"{mdd:.2%}", delta=f"{mdd:.2%}", delta_color="normal")
-    
-    cols[3].metric("Signal", signal_text)
-
-
-def render_secondary_stats(result: dict[str, Any]) -> None:
-    """Shows detailed stats for the Backtest workspace."""
-    kpi = result["kpi"]
-    cols = st.columns(4)
-    
-    wr = kpi.get("win_rate", 0)
-    cols[0].metric("Win Rate", f"{wr:.2%}", delta=f"{wr-0.5:.2%}", delta_color="normal")
-    
-    pf = kpi.get("profit_factor", 0)
-    cols[1].metric("Profit Factor", f"{pf:.2f}", delta=f"{pf-1:.2f}", delta_color="normal")
-    
-    trades = kpi.get("total_trades", 0)
-    cols[2].metric("Total Trades", f"{trades}")
-    
-    exp = kpi.get("exposure", 0)
-    cols[3].metric("Exposure", f"{exp:.2%}")
-
-
-def create_macd_chart(df: pd.DataFrame) -> go.Figure:
-    fig = go.Figure()
-    if 'macd' not in df.columns: return fig
-    
-    colors = ['#10b981' if val >= 0 else '#f43f5e' for val in df['macd_hist']]
-    fig.add_trace(go.Bar(x=df.index, y=df['macd_hist'], name='Hist', marker_color=colors, opacity=0.7))
-    fig.add_trace(go.Scatter(x=df.index, y=df['macd'], mode='lines', name='MACD', line=dict(color='#3b82f6')))
-    fig.add_trace(go.Scatter(x=df.index, y=df['macd_signal'], mode='lines', name='Signal', line=dict(color='#fbbf24')))
-    
-    fig.update_layout(
-        title=dict(text="MACD 指標", font=dict(size=16, color='white')),
-        template="plotly_dark",
-        height=300,
-        margin=dict(l=40, r=40, t=40, b=40),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(gridcolor='rgba(255, 255, 255, 0.05)'),
-        yaxis=dict(gridcolor='rgba(255, 255, 255, 0.05)')
+    render_trading_workspace(
+        TradingWorkspaceView(
+            title=f"{selected_symbol} | {strategy_name}",
+            price_chart=price_chart,
+            secondary_chart=rsi_chart,
+            kpis=build_kpis(result),
+            journal_events=journal.read_all(),
+            portfolio_state=portfolio_state,
+            summary=f"Latest close {latest_close:,.2f} | Latest signal {latest_signal} | Mode {execution_mode}",
+        )
     )
-    return fig
 
-
-def render_analysis_tab(result: dict[str, Any], chart_type: str) -> None:
-    df = result["df"]
-    metadata = result["metadata"]
-    
-    title = f"{metadata['symbol']}  |  {metadata['interval']}  |  {metadata['strategy_name']}"
-    st.plotly_chart(create_price_chart(df, title=title, chart_type=chart_type), use_container_width=True)
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        if metadata["strategy_name"] == "RSI_MACD":
-            overbought = metadata["parameters"].get("overbought", 70)
-            oversold = metadata["parameters"].get("oversold", 30)
-            st.plotly_chart(create_rsi_chart(df, overbought, oversold), use_container_width=True)
-        else:
-            st.plotly_chart(create_rsi_chart(df), use_container_width=True)
-    with c2:
-        st.plotly_chart(create_macd_chart(df), use_container_width=True)
-
-
-def render_backtest_tab(result: dict[str, Any]) -> None:
-    df = result["df"]
-    st.markdown("### 策略回測統計")
-    render_secondary_stats(result)
-    
-    st.markdown("---")
-    st.markdown("### 資產曲線")
-    fig = create_equity_curve(df)
-    if "returns" in df.columns:
-        bh_equity = (1 + df["returns"]).cumprod()
-        fig.add_trace(go.Scatter(
-            x=df.index, y=bh_equity,
-            mode='lines', name='Buy & Hold',
-            line=dict(color='gray', dash='dash')
-        ))
-    st.plotly_chart(fig, use_container_width=True)
-    
-    display_cols = ["open", "high", "low", "close", "signal", "position", "strategy_returns", "equity"]
-    existing_cols = [col for col in display_cols if col in df.columns]
-    st.markdown("### 最近交易明細")
-    st.dataframe(df[existing_cols].tail(30), use_container_width=True, height=420)
-
-
-def render_ai_tab(result: dict[str, Any]) -> None:
-    df = result["df"]
-    projection = get_ai_projection(df)
-    advice = get_investment_advice(df)
-    scenarios = projection.get("scenarios", {})
-    
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Trend Score", f"{projection['trend_score']:.0f}")
-    c2.metric("Risk Score", f"{projection['risk_score']:.0f}")
-    c3.metric("AI Stance", projection["sentiment"])
-
-    st.markdown("---")
-    left, right = st.columns(2)
-    with left:
-        st.markdown("#### Decision Notes")
-        st.info(f"**{advice['advice']}**")
-        for reason in advice['reasons']:
-            st.write(f"- {reason}")
-            
-        st.markdown("#### Risk Radar")
-        st.warning(projection['risk_reason'])
-        
-    with right:
-        st.markdown("#### 未來 10 日情境")
-        if scenarios:
-            st.write(f"- 🟢 樂觀：{scenarios['bullish']:.2f}")
-            st.write(f"- ⚪ 中性：{scenarios['neutral_lower']:.2f} ~ {scenarios['neutral_upper']:.2f}")
-            st.write(f"- 🔴 悲觀：{scenarios['bearish']:.2f}")
-        else:
-            st.info("資料不足，無法計算情境。")
-            
-        forecast_df = predict_future_prices(df)
-        if not forecast_df.empty:
-            st.plotly_chart(create_forecast_chart(df, forecast_df), use_container_width=True)
-
-
-def run_screener(symbols: list[str], strategy_name: str, params: dict[str, Any], tc: float, period: str, interval: str) -> pd.DataFrame:
-    rows: list[dict[str, Any]] = []
-    progress = st.progress(0)
-    placeholder = st.empty()
-
-    for idx, symbol in enumerate(symbols, start=1):
-        try:
-            result = run_backtest_pipeline(symbol, strategy_name, params, tc, period, interval)
-            analysis = analyze_symbol_detailed(result["df"], symbol=symbol)
-            latest = result["df"].iloc[-1]
-            signal, _ = latest_signal_label(latest.get("signal", 0))
-            rows.append(
-                {
-                    "Symbol": symbol,
-                    "Score": analysis["score"],
-                    "Trend": analysis["trend"],
-                    "Signal": signal,
-                    "Risk": analysis["risk"],
-                    "Volume Ratio": f"{analysis['volume_ratio']:.1f}x",
-                    "Return": f"{result['kpi']['total_return']:.2%}",
-                    "Reason": analysis["reason"],
-                }
+    backtest_tab, scanner_tab, research_tab = st.tabs(["Backtest", "Scanner", "Research"])
+    with backtest_tab:
+        render_backtest_workspace(
+            BacktestWorkspaceView(
+                kpis=build_kpis(result),
+                equity_chart=equity_chart,
+                dataframe=dataframe,
             )
-        except Exception as exc:
-            rows.append(
-                {
-                    "Symbol": symbol,
-                    "Score": 0,
-                    "Trend": "Error",
-                    "Signal": "-",
-                    "Risk": "-",
-                    "Volume Ratio": "-",
-                    "Return": "-",
-                    "Reason": str(exc),
-                }
+        )
+    with scanner_tab:
+        scanner_rows = build_scanner_rows(result)
+        render_scanner_page(
+            ScannerPageView(
+                rows=scanner_rows,
+                narrative=[
+                    "Scanner stays secondary to the chart and lifecycle panel.",
+                    "Current candidate score is derived from price structure, momentum, volume, and risk.",
+                ],
             )
-        progress.progress(idx / len(symbols))
-        placeholder.dataframe(pd.DataFrame(rows), use_container_width=True, height=360)
-
-    return pd.DataFrame(rows)
-
-
-def render_scanner_tab(strategy_name: str, params: dict[str, Any], tc: float, interval: str) -> None:
-    st.markdown("### Scanner")
-    default_symbols = "2330.TW, 2317.TW, 2454.TW, 2382.TW, 2881.TW"
-    symbol_text = st.text_area("掃描清單", value=default_symbols, height=100)
-    scan_period = st.selectbox("掃描區間", ["1mo", "3mo", "6mo", "1y"], index=1, key="scanner_period")
-    if st.button("開始掃描", use_container_width=True):
-        symbols = [item.strip() for item in symbol_text.split(",") if item.strip()]
-        if symbols:
-            with st.spinner("掃描中..."):
-                result_df = run_screener(symbols, strategy_name, params, tc, scan_period, interval)
-            st.success(f"掃描完成！共分析 {len(result_df)} 個標的。")
-
-
-def render_watchlist_panel(symbol: str):
-    if not st.session_state.show_watchlist:
-        if st.button("▶", help="展開 Watchlist"):
-            st.session_state.show_watchlist = True
-            st.rerun()
-        return
-
-    c1, c2 = st.columns([4, 1])
-    c1.markdown("### ⭐ Watchlist")
-    if c2.button("◀", help="收起"):
-        st.session_state.show_watchlist = False
-        st.rerun()
-
-    watchlist = get_watchlist()
-    st.markdown("---")
-    if watchlist:
-        for item in watchlist:
-            # Compact buttons for watchlist
-            btn_type = "primary" if item == symbol else "secondary"
-            if st.button(item, key=f"wl_{item}", use_container_width=True, type=btn_type):
-                st.session_state.symbol_input = item
-                st.rerun()
-    else:
-        st.info("清單為空")
-
-    if symbol:
-        st.markdown("---")
-        if symbol in watchlist:
-            if st.button(f"Remove {symbol}", use_container_width=True, type="secondary"):
-                remove_from_watchlist(symbol)
-                st.rerun()
-        else:
-            if st.button(f"Add {symbol}", use_container_width=True, type="primary"):
-                save_to_watchlist(symbol)
-                st.rerun()
-
-
-def render_sidebar(symbol: str, strategy_name: str, interval: str) -> None:
-    with st.sidebar:
-        st.markdown("## Sidebar Tools")
-        st.markdown("### Daily Report")
-        watchlist = get_watchlist()
-        if st.button("產生每日報告", use_container_width=True):
-            targets = watchlist if watchlist else ([symbol] if symbol else [])
-            if not targets:
-                st.warning("請先加入標的至 watchlist。")
-            else:
-                with st.spinner("產生報告中..."):
-                    report_path = generate_daily_report(targets, strategy_name, interval)
-                if report_path:
-                    st.success(f"報告已產出：{report_path}")
-                else:
-                    st.error("報告產出失敗。")
-
-        st.markdown("### Recent History")
-        history = get_history(8)
-        if not history.empty:
-            st.dataframe(history, use_container_width=True, height=240)
-            if st.button("清除紀錄", use_container_width=True):
-                pd.DataFrame(columns=["timestamp", "symbol", "interval", "score", "sentiment"]).to_csv(HISTORY_FILE, index=False)
-                st.rerun()
-
-
-def execute_analysis(symbol: str, strategy_name: str, params: dict[str, Any], tc: float, period: str, interval: str, chart_type: str) -> None:
-    if not symbol:
-        st.error("請輸入股票代碼後再執行分析。")
-        return
-
-    with st.spinner(f"正在抓取並分析 {symbol}..."):
-        result = run_backtest_pipeline(symbol, strategy_name, params, tc, period, interval)
-    st.session_state.latest_result = result
-    st.session_state.last_chart_type = chart_type
-
-    projection = get_ai_projection(result["df"])
-    log_access(symbol, interval, int(projection["trend_score"]), projection["sentiment"])
+        )
+    with research_tab:
+        render_research_page(
+            ResearchPageView(
+                projection_summary=projection,
+                forecast_chart=forecast_chart,
+                notes=[
+                    "Research outputs remain tertiary and do not displace price action.",
+                    "Forecasts are scenario-based and should not override risk constraints.",
+                ],
+            )
+        )
 
 
 def main() -> None:
-    init_state()
     inject_css()
-    
-    render_market_status_bar()
-    
-    control_state = render_top_controls()
-    strategy_params, transaction_cost = render_strategy_controls(control_state["strategy_name"])
-    render_sidebar(control_state["symbol"], control_state["strategy_name"], control_state["interval"])
+    init_session_state()
+    render_market_bar(
+        load_market_snapshot(),
+        market_label="Global Market Tape",
+        as_of=datetime.now(),
+        market_status="Live",
+    )
 
-    if control_state["run_clicked"]:
-        try:
-            execute_analysis(
-                control_state["symbol"],
-                control_state["strategy_name"],
-                strategy_params,
-                transaction_cost,
-                control_state["period"],
-                control_state["interval"],
-                control_state["chart_type"],
-            )
-        except Exception as exc:
-            st.error(f"分析失敗：{exc}")
+    analysis_result = st.session_state.get("analysis_result")
+    current_dataframe = analysis_result["df"] if analysis_result else None
 
-    if st.session_state.show_watchlist:
-        left_col, right_col = st.columns([1, 6])
-    else:
-        left_col, right_col = st.columns([0.1, 6.9])
-        
+    left_col, right_col = st.columns([1.0, 4.2])
     with left_col:
-        render_watchlist_panel(control_state["symbol"])
-        
-    with right_col:
-        latest_result = st.session_state.get("latest_result")
-        chart_type = st.session_state.get("last_chart_type", control_state["chart_type"])
+        watchlist_rows = build_watchlist_rows(st.session_state["selected_symbol"], current_dataframe)
+        render_watchlist(
+            watchlist_rows,
+            selected_symbol=st.session_state["selected_symbol"],
+            on_select=lambda symbol: st.session_state.__setitem__("selected_symbol", symbol),
+        )
+        new_symbol = st.text_input("Add Symbol", value="", placeholder="e.g. NVDA")
+        add_col, remove_col = st.columns(2)
+        with add_col:
+            if st.button("Add", use_container_width=True) and new_symbol:
+                save_to_watchlist(new_symbol.upper())
+        with remove_col:
+            if st.button("Remove", use_container_width=True):
+                remove_from_watchlist(st.session_state["selected_symbol"])
 
-        if latest_result:
-            render_kpi_row(latest_result)
-            render_analysis_tab(latest_result, chart_type)
-            
-            tabs = st.tabs(["📈 回測", "🔍 Scanner", "🤖 AI Projection", "📦 匯出"])
-            with tabs[0]:
-                render_backtest_tab(latest_result)
-            with tabs[1]:
-                render_scanner_tab(
-                    control_state["strategy_name"],
-                    strategy_params,
-                    transaction_cost,
-                    control_state["interval"],
+    with right_col:
+        toolbar_state = render_workspace_toolbar(
+            symbols=[st.session_state["selected_symbol"], *[symbol for symbol in get_watchlist() if symbol != st.session_state["selected_symbol"]]],
+            selected_symbol=st.session_state["selected_symbol"],
+            timeframes=TIMEFRAME_OPTIONS,
+            selected_timeframe=st.session_state["selected_timeframe"],
+            periods=PERIOD_OPTIONS,
+            selected_period=st.session_state["selected_period"],
+            strategies=StrategyRegistry.get_available_strategies(),
+            selected_strategy=st.session_state["selected_strategy"],
+            execution_modes=EXECUTION_MODES,
+            selected_execution_mode=st.session_state["selected_execution_mode"],
+        )
+        st.session_state["selected_symbol"] = toolbar_state.symbol
+        st.session_state["selected_timeframe"] = toolbar_state.timeframe
+        st.session_state["selected_period"] = toolbar_state.period
+        st.session_state["selected_strategy"] = toolbar_state.strategy_name
+        st.session_state["selected_execution_mode"] = toolbar_state.execution_mode
+
+        run_col, paper_col, semi_col = st.columns([1.1, 1.2, 1.2])
+        with run_col:
+            if st.button("Run Analysis", use_container_width=True, type="primary"):
+                st.session_state["analysis_result"] = load_analysis(
+                    symbol=toolbar_state.symbol,
+                    strategy_name=toolbar_state.strategy_name,
+                    period=toolbar_state.period,
+                    interval=toolbar_state.timeframe,
                 )
-            with tabs[2]:
-                render_ai_tab(latest_result)
-            with tabs[3]:
-                df = latest_result["df"]
-                csv = df.to_csv(index=True).encode('utf-8')
-                st.download_button("下載資料 CSV", csv, "data.csv", "text/csv")
-        else:
-            st.info("請點擊上方 Run 按鈕開始分析，結果將顯示於此頁。")
+        with paper_col:
+            if st.button("Trigger Paper Flow", use_container_width=True):
+                execute_latest_signal("Paper Trading")
+        with semi_col:
+            if st.button("Trigger Semi Auto", use_container_width=True):
+                execute_latest_signal("Semi Auto")
+
+        if st.session_state.get("analysis_result") is None:
+            st.info("Run analysis to load the trading workspace.")
+            return
+
+        render_workspace(st.session_state["analysis_result"])
 
 
 if __name__ == "__main__":
